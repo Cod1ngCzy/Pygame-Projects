@@ -19,9 +19,12 @@ class Game():
 
         # Sprites
         self.all_sprites = pygame.sprite.Group()
-        self.pacman = Pacman(self.all_sprites)
-        pygame.key.set_repeat(500,100)
+        self.wall_objects = []
 
+        # Check Grid Map
+        self.pacman = Pacman(self.all_sprites, 1,1,self.wall_objects)
+
+        pygame.key.set_repeat(500,100)
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -33,23 +36,30 @@ class Game():
                 mdx = round(mouse_x // TILE_SIZE)
                 mdy = round(mouse_y // TILE_SIZE)
 
-                GRID_MAP[mdy][mdx] = '1'
-
-    
-     
+                #if pygame.mouse.get_just_pressed()[0]:
+                #   GRID_MAP[mdy][mdx] = '1'
+                #elif pygame.mouse.get_pressed()[2]:
+                #   GRID_MAP[mdy][mdx] = '0'
+                
+             # Save on Key Press (e.g., Press 'S' to Save)
+            #if event.type == pygame.KEYDOWN:
+            #    if event.key == pygame.K_TAB:
+            #       save_map()
+        
     def draw_grid(self):
          # x Loop to Draw Horizontal
-         for x in range(0, WIDTH, TILE_SIZE):
-              pygame.draw.line(self.display_screen, LIGHTGREY,(x,0), (x,HEIGHT))
+         #for x in range(0, WIDTH, TILE_SIZE):
+         #     pygame.draw.line(self.display_screen, LIGHTGREY,(x,0), (x,HEIGHT))
          # y Loop to Draw Vertical
-         for y in range(0, HEIGHT, TILE_SIZE):
-              pygame.draw.line(self.display_screen, LIGHTGREY,(0,y), (WIDTH,y))
-
+         #for y in range(0, HEIGHT, TILE_SIZE):
+         #     pygame.draw.line(self.display_screen, LIGHTGREY,(0,y), (WIDTH,y))
+         self.wall_objects = [ pygame.Rect(col_index * TILE_SIZE, row_index * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            for row_index, row in enumerate(GRID_MAP)
+            for col_index, cell in enumerate(row) if cell == '1']
+         
          # Draw Walls
-         for row_index, row in enumerate(GRID_MAP):
-            for col_index, cell in enumerate(row):
-                if cell == '1':
-                    pygame.draw.rect(self.display_screen,'blue',(col_index * TILE_SIZE, row_index * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+         for wall in self.wall_objects:
+             pygame.draw.rect(self.display_screen, 'blue', wall,10)
             
 
     def run(self):
@@ -64,7 +74,7 @@ class Game():
             self.display_screen.fill('black')
 
             # Draw and Handle Sprites
-            self.all_sprites.update(dt)
+            self.all_sprites.update(dt, self.wall_objects)
             self.all_sprites.draw(self.display_screen)
 
             # Draw Grid

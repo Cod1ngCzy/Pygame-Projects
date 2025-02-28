@@ -1,5 +1,6 @@
 import pygame, sys
 from os.path import join
+import json
 
 # Game Color (R,G,B)
 WHITE = (255, 255, 255)
@@ -35,23 +36,16 @@ FPS = 60
 TILE_SIZE = 32
 GRID_WIDTH = WIDTH / TILE_SIZE
 GRID_HEIGHT = HEIGHT / TILE_SIZE
-GRID_MAP = [
-    list("11111111111111111"),
-    list("10000000000000001"),
-    list("10111110111111101"),
-    list("10100010100001101"),
-    list("10101110111001101"),
-    list("10101000001001101"),
-    list("10101111111001101"),
-    list("10100000000001101"),
-    list("10111101111111101"),
-    list("10000001000000001"),
-    list("10111101111111101"),
-    list("10000000000000001"),
-    list("11110111111011111"),
-    list("10000100001000011"),
-    list("10111110111111011"),
-    list("10000000000000001"),
-    list("11111111111111111")
-]
 
+# Load Map if Exists
+try:
+    with open("tilemap.json","r") as file:
+        GRID_MAP = json.load(file)
+except FileNotFoundError:
+    pygame.quit('No Map Found || Check File Path')
+
+# Save Map || Debug Mode
+def save_map():
+    with open("tilemap.json", "w") as file:
+        json.dump(GRID_MAP, file, indent=4)
+    print("Map Saved!")

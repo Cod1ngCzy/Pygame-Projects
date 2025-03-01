@@ -1,6 +1,7 @@
 import pygame, sys
 from os.path import join
 import json
+import heapq
 
 # Game Color (R,G,B)
 WHITE = (255, 255, 255)

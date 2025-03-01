@@ -20,9 +20,9 @@ class Game():
         # Sprites
         self.all_sprites = pygame.sprite.Group()
         self.wall_objects = []
-
-        # Check Grid Map
-        self.pacman = Pacman(self.all_sprites, 1,1,self.wall_objects)
+        self.walk_path = []
+        self.pacman = Pacman(self.all_sprites)
+        self.ghosts = Ghosts(self.all_sprites)
 
         pygame.key.set_repeat(500,100)
 
@@ -36,6 +36,7 @@ class Game():
                 mdx = round(mouse_x // TILE_SIZE)
                 mdy = round(mouse_y // TILE_SIZE)
 
+                print(mdy,mdx)
                 #if pygame.mouse.get_just_pressed()[0]:
                 #   GRID_MAP[mdy][mdx] = '1'
                 #elif pygame.mouse.get_pressed()[2]:
@@ -57,9 +58,16 @@ class Game():
             for row_index, row in enumerate(GRID_MAP)
             for col_index, cell in enumerate(row) if cell == '1']
          
+         self.walk_path = [(int(col_index),int(row_index))
+             for row_index, row in enumerate(GRID_MAP)
+             for col_index, cell in enumerate(row) if cell == '0'
+         ]
+
+         print(self.walk_path)
+         
          # Draw Walls
          for wall in self.wall_objects:
-             pygame.draw.rect(self.display_screen, 'blue', wall,10)
+             pygame.draw.rect(self.display_screen, 'blue', wall,2)
             
 
     def run(self):

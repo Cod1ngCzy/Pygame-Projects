@@ -1,4 +1,3 @@
-# Game Loop
 from settings import *
 from sprites import *
 
@@ -17,14 +16,24 @@ class Game():
         # Running Flag
         self.running = True
 
-        # Sprites
+    # Sprites
         self.all_sprites = pygame.sprite.Group()
-        self.wall_objects = []
-        self.walk_path = []
+
+        # Instantiate Pacman and Ghosts
         self.pacman = Pacman(self.all_sprites)
         self.ghosts = Ghosts(self.all_sprites)
-
-        pygame.key.set_repeat(500,100)
+        
+        # Define walls and walkable paths from GRID_MAP
+        self.wall_objects = [pygame.Rect(col_index * TILE_SIZE, row_index * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            for row_index, row in enumerate(GRID_MAP)
+            for col_index, cell in enumerate(row) if cell == '1']
+        
+        self.walk_path = [(int(col_index),int(row_index))
+             for row_index, row in enumerate(GRID_MAP)
+             for col_index, cell in enumerate(row) if cell == '0']
+        
+        # Create Grid Surface
+        self.create_grid_surface()
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -47,29 +56,22 @@ class Game():
             #    if event.key == pygame.K_TAB:
             #       save_map()
         
-    def draw_grid(self):
-         # x Loop to Draw Horizontal
-         #for x in range(0, WIDTH, TILE_SIZE):
-         #     pygame.draw.line(self.display_screen, LIGHTGREY,(x,0), (x,HEIGHT))
-         # y Loop to Draw Vertical
-         #for y in range(0, HEIGHT, TILE_SIZE):
-         #     pygame.draw.line(self.display_screen, LIGHTGREY,(0,y), (WIDTH,y))
-         self.wall_objects = [ pygame.Rect(col_index * TILE_SIZE, row_index * TILE_SIZE, TILE_SIZE, TILE_SIZE)
-            for row_index, row in enumerate(GRID_MAP)
-            for col_index, cell in enumerate(row) if cell == '1']
-         
-         self.walk_path = [(int(col_index),int(row_index))
-             for row_index, row in enumerate(GRID_MAP)
-             for col_index, cell in enumerate(row) if cell == '0'
-         ]
+    def create_grid_surface(self):
+        """Creates a pre-rendered grid surface to optimize performance."""
+        self.grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        self.grid_surface.fill((0, 0, 0, 0))  # Transparent background
 
-         print(self.walk_path)
-         
-         # Draw Walls
-         for wall in self.wall_objects:
-             pygame.draw.rect(self.display_screen, 'blue', wall,2)
+        # Draw Grid
+        #for x in range(0, WIDTH, TILE_SIZE):
+        #    pygame.draw.line(self.grid_surface, LIGHTGREY, (x, 0), (x, HEIGHT))
+        #for y in range(0, HEIGHT, TILE_SIZE):
+        #    pygame.draw.line(self.grid_surface, LIGHTGREY, (0, y), (WIDTH, y))
+
+        # Draw Walls on Grid Surface
+        for wall in self.wall_objects:
+            pygame.draw.rect(self.grid_surface, 'blue', wall, 2)
+
             
-
     def run(self):
         while self.running:
             # Delta Time
@@ -81,13 +83,13 @@ class Game():
             # Fill Screen
             self.display_screen.fill('black')
 
+            # Blit Grid (pre-rendered for performance)
+            self.display_screen.blit(self.grid_surface, (0, 0))
+
             # Draw and Handle Sprites
-            self.all_sprites.update(dt, self.wall_objects)
+            self.all_sprites.update(dt, self.wall_objects, self.walk_path)
             self.all_sprites.draw(self.display_screen)
-
-            # Draw Grid
-            self.draw_grid()
-
+       
             # Render Display
             pygame.display.flip()
 

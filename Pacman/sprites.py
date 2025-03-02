@@ -6,10 +6,12 @@ class Character(pygame.sprite.Sprite):
         self.image =  pygame.Surface((TILE_SIZE,TILE_SIZE))
         self.image.fill('yellow')
         self.rect = self.image.get_frect()
-        self.pos = pygame.Vector2(1,1)
+        self.pos = pygame.Vector2()
         self.direction = pygame.Vector2(0,0)
         self.speed = 5
         self.move_timer = 0
+        self.rows = len(GRID_MAP)
+        self.cols = len(GRID_MAP[0]) if self.rows > 0 else 0
     
     def wall_collisions(self, walls):
         for wall in walls:
@@ -56,14 +58,20 @@ class Pacman(Character):
     def update(self, dt, walls, paths):
         self.input_movement()
         super().update(dt, walls, paths)  # Call parent update method
-  
+        #print(self.pos, self.direction, self.rect)
 
 class Ghosts(Character):
     def __init__(self, groups):
         super().__init__(groups)
-        self.pos = pygame.Vector2(6,8)
+        self.pos = pygame.Vector2(6, 8)  # Initial position
         self.image.fill('orange')
-    
+        self.speed = 1  # Move one tile per step
+
     def update(self, dt, walls, paths):
-        super().update(dt, walls, paths)  # Call parent update method
-  
+        super().update(dt, walls, paths)
+    
+        
+
+
+      
+

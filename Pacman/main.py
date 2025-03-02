@@ -15,6 +15,7 @@ class Game():
 
         # Running Flag
         self.running = True
+        self.debug = False
 
     # Sprites
         self.all_sprites = pygame.sprite.Group()
@@ -39,40 +40,55 @@ class Game():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_x, mouse_y = pygame.mouse.get_pos()
+            if event.type == pygame.KEYDOWN:   # Debug Mode
+                keys = pygame.key.get_pressed()
 
-                mdx = round(mouse_x // TILE_SIZE)
-                mdy = round(mouse_y // TILE_SIZE)
+                if keys[pygame.K_F12]:
+                    print('DEBUG MODE')
+                    self.debug = True
+                if keys[pygame.K_ESCAPE] and self.debug:
+                    print('EXITTED DEBUG')
+                    self.debug = False
+                    for x in range(0, WIDTH, TILE_SIZE):
+                        pygame.draw.line(self.grid_surface, BLACK, (x, 0), (x, HEIGHT))
+                    for y in range(0, HEIGHT, TILE_SIZE):
+                        pygame.draw.line(self.grid_surface, BLACK, (0, y), (WIDTH, y))
+        
 
-                print(mdy,mdx)
-                #if pygame.mouse.get_just_pressed()[0]:
-                #   GRID_MAP[mdy][mdx] = '1'
-                #elif pygame.mouse.get_pressed()[2]:
-                #   GRID_MAP[mdy][mdx] = '0'
-                
-             # Save on Key Press (e.g., Press 'S' to Save)
-            #if event.type == pygame.KEYDOWN:
-            #    if event.key == pygame.K_TAB:
-            #       save_map()
         
     def create_grid_surface(self):
         """Creates a pre-rendered grid surface to optimize performance."""
         self.grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         self.grid_surface.fill((0, 0, 0, 0))  # Transparent background
 
-        # Draw Grid
-        #for x in range(0, WIDTH, TILE_SIZE):
-        #    pygame.draw.line(self.grid_surface, LIGHTGREY, (x, 0), (x, HEIGHT))
-        #for y in range(0, HEIGHT, TILE_SIZE):
-        #    pygame.draw.line(self.grid_surface, LIGHTGREY, (0, y), (WIDTH, y))
-
         # Draw Walls on Grid Surface
         for wall in self.wall_objects:
-            pygame.draw.rect(self.grid_surface, 'blue', wall, 2)
+            pygame.draw.rect(self.grid_surface, 'blue', wall, 2)\
+    
+    def debug_mode(self):
+        # Draw Grid
+        for x in range(0, WIDTH, TILE_SIZE):
+            pygame.draw.line(self.grid_surface, LIGHTGREY, (x, 0), (x, HEIGHT))
+        for y in range(0, HEIGHT, TILE_SIZE):
+            pygame.draw.line(self.grid_surface, LIGHTGREY, (0, y), (WIDTH, y))
+        
+        # Grid Tiles Reaarangement (TO DO) #
 
-    def create_path_graph(self):
-        pass
+        #mouse_x, mouse_y = pygame.mouse.get_pos()
+
+        #mdx = round(mouse_x // TILE_SIZE)
+        #mdy = round(mouse_y // TILE_SIZE)
+
+        #if pygame.mouse.get_just_pressed()[0]:
+        #  GRID_MAP[mdy][mdx] = '1'
+        #elif pygame.mouse.get_pressed()[2]:
+        #  GRID_MAP[mdy][mdx] = '0'
+        
+        # Save on Key Press (e.g., Press 'S' to Save)
+        #if event.type == pygame.KEYDOWN:
+        #    if event.key == pygame.K_TAB:
+        #       save_map()
+    
 
     def run(self):
         while self.running:
@@ -81,7 +97,9 @@ class Game():
 
             # Event Handler
             self.handle_events()
-            
+            if self.debug:
+                self.debug_mode()
+                 
             # Fill Screen
             self.display_screen.fill('black')
 

@@ -54,8 +54,10 @@ class Game():
                     for y in range(0, HEIGHT, TILE_SIZE):
                         pygame.draw.line(self.grid_surface, BLACK, (0, y), (WIDTH, y))
         
-
+        if self.debug:
+                self.debug_mode()
         
+
     def create_grid_surface(self):
         """Creates a pre-rendered grid surface to optimize performance."""
         self.grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -97,8 +99,6 @@ class Game():
 
             # Event Handler
             self.handle_events()
-            if self.debug:
-                self.debug_mode()
                  
             # Fill Screen
             self.display_screen.fill('black')

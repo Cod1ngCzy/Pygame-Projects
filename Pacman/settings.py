@@ -1,4 +1,4 @@
-import pygame, sys, json
+import pygame, sys, json,random
 from os.path import join
 import json
 import heapq

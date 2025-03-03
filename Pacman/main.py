@@ -22,13 +22,14 @@ class Game():
 
         # Instantiate Pacman and Ghosts
         self.pacman = Pacman(self.all_sprites)
-        self.ghosts = Ghosts(self.all_sprites)
+        self.ghosts = [Ghosts(self.all_sprites, 'orange', 5 + i + 2, 8) for i in range(2)]
 
         # Define walls and walkable paths from GRID_MAP
         self.wall_objects = [pygame.Rect(col_index * TILE_SIZE, row_index * TILE_SIZE, TILE_SIZE, TILE_SIZE)
             for row_index, row in enumerate(GRID_MAP)
             for col_index, cell in enumerate(row) if cell == '1']
         
+        # For Debugging
         self.walk_path = [(int(row_index),int(col_index))
              for row_index, row in enumerate(GRID_MAP)
              for col_index, cell in enumerate(row) if cell == '0']
@@ -107,7 +108,7 @@ class Game():
             self.display_screen.blit(self.grid_surface, (0, 0))
 
             # Draw and Handle Sprites
-            self.all_sprites.update(dt, self.wall_objects, self.walk_path)
+            self.all_sprites.update(dt, self.wall_objects, self.pacman, self.ghosts)
             self.all_sprites.draw(self.display_screen)
 
             # Render Display

@@ -40,7 +40,7 @@ class Entities(pygame.sprite.Sprite):  # Base class for all game entities
             if self.rect.colliderect(other_object.rect):  # Check if colliding
                 print(self.rect, other_object.rect)  # Print collision details
 
-    def update(self, dt, walls, pacman, ghost):  # Update entity state each frame
+    def update(self, dt, walls, pacman, ghost, pellets, game_data):  # Update entity state each frame
         self.move_timer += dt  # Increment move timer
         self.wall_collisions(walls)  # Check for wall collisions
 
@@ -60,17 +60,26 @@ class Pacman(Entities):  # Class for Pacman player
             self.direction = pygame.Vector2(0, -1)
         elif keys[pygame.K_s]:  # Move down
             self.direction = pygame.Vector2(0, 1)
+    
+    def eat_pellets(self, pellets):
+        for row_index, pellet in enumerate(pellets):
+            if self.rect.colliderect(pellet):
+                pellets.pop(row_index)
+                return True
 
-    def update(self, dt, walls, pacman, ghost):  # Update Pacman each frame
+    def update(self, dt, walls, pacman, ghost, pellets, game_data):  # Update Pacman each frame
         self.input_movement()  # Process movement input
     
         if self.move_timer >= 1 / self.speed:  # Check if it's time to move
             self.move_timer = 0  # Reset move timer
             self.pos += self.direction  # Move based on direction
-            self.rect.topleft = self.pos * TILE_SIZE  # Update position on the grid
-
+            self.rect.topleft = self.pos * TILE_SIZE  # Update position on the grid 
+        
+        if self.eat_pellets(pellets):
+            game_data['points'] += 10
+            
         self.collisions(ghost)  # Check for collisions with ghosts
-        super().update(dt, walls, pacman, ghost)  # Call parent update method
+        super().update(dt, walls, pacman, ghost, pellets, game_data)  # Call parent update method
 
 class Ghosts(Entities):  # Class for Ghost enemies
     def __init__(self, groups, color, pos_x, pos_y):
@@ -98,7 +107,7 @@ class Ghosts(Entities):  # Class for Ghost enemies
 
         return self.path  # Return list of possible moves
 
-    def update(self, dt, walls, pacman, ghost):  # Update ghost each frame
+    def update(self, dt, walls, pacman, ghost, pellets, game_data):  # Update ghost each frame
         self.walkable_path()  # Get possible movement paths
 
         if self.move_timer >= 1 / self.speed:  # Check if it's time to move
@@ -121,4 +130,4 @@ class Ghosts(Entities):  # Class for Ghost enemies
             self.rect.topleft = self.pos * TILE_SIZE  # Update position
 
         self.collisions(pacman)  # Check for collisions with Pacman
-        super().update(dt, walls, pacman, ghost)  # Call parent update method
+        super().update(dt, walls, pacman, ghost, pellets, game_data)  # Call parent update method

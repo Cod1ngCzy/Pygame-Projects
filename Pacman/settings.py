@@ -7,6 +7,9 @@ import heapq
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 LIGHTGREY = (100,100,100)
+ORANGE = (255, 165, 0)
+PEACH = (255, 229, 180)
+GHOST_COLOR = [WHITE,ORANGE]
 
 # ==============================
 # SCREEN SIZE & TILE FIT CHART
@@ -31,16 +34,16 @@ LIGHTGREY = (100,100,100)
 # both WIDTH and HEIGHT.
 
 # Game Settings
-HEIGHT = 544
+HEIGHT = 600
 WIDTH = 544 
 FPS = 60
 TILE_SIZE = 32
 GRID_WIDTH = WIDTH / TILE_SIZE
-GRID_HEIGHT = HEIGHT / TILE_SIZE
+GRID_HEIGHT = WIDTH / TILE_SIZE
 
 # Load Map if Exists
 try:
-    with open("tilemap.json","r") as file:
+    with open(join("assets", "tilemap.json"),"r") as file:
         GRID_MAP = json.load(file)
 except FileNotFoundError:
     pygame.quit('No Map Found || Check File Path')

@@ -17,23 +17,41 @@ class Game():
         self.running = True
         self.debug = False
 
+        # Game Variables
+        self.GAME_DATA = {"points": 0} 
+        self.font = pygame.font.Font('assets/pixel.ttf', 16)
+
     # Sprites
         self.all_sprites = pygame.sprite.Group()
 
         # Instantiate Pacman and Ghosts
         self.pacman = Pacman(self.all_sprites)
-        self.ghosts = [Ghosts(self.all_sprites, 'orange', 5 + i + 2, 8) for i in range(2)]
+        self.ghosts = [Ghosts(self.all_sprites, GHOST_COLOR[i], 5 + i + 2, 8) for i in range(2)]
 
         # Define walls and walkable paths from GRID_MAP
         self.wall_objects = [pygame.Rect(col_index * TILE_SIZE, row_index * TILE_SIZE, TILE_SIZE, TILE_SIZE)
             for row_index, row in enumerate(GRID_MAP)
             for col_index, cell in enumerate(row) if cell == '1']
         
-        # For Debugging
+        # Define Walkable Paths
         self.walk_path = [(int(row_index),int(col_index))
              for row_index, row in enumerate(GRID_MAP)
              for col_index, cell in enumerate(row) if cell == '0']
         
+        # Create Pellets
+        self.pellet_size = TILE_SIZE // 4  
+        self.pellets = [
+            pygame.Rect(
+                (path[1] * TILE_SIZE) + (TILE_SIZE - self.pellet_size) // 2,  # Center X
+                (path[0] * TILE_SIZE) + (TILE_SIZE - self.pellet_size) // 2,  # Center Y
+                self.pellet_size,  # Pellet width
+                self.pellet_size   # Pellet height
+            ) 
+            for path in self.walk_path
+        ]
+                
+    # Game Functions Calls
+
         # Create Grid Surface
         self.create_grid_surface()
 
@@ -58,10 +76,13 @@ class Game():
         if self.debug:
                 self.debug_mode()
         
+    def draw_points(self):
+        text = self.font.render(f'{str(self.GAME_DATA['points'])}',True, WHITE)
+        self.display_screen.blit(text, (20, 560))
 
     def create_grid_surface(self):
         """Creates a pre-rendered grid surface to optimize performance."""
-        self.grid_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        self.grid_surface = pygame.Surface((WIDTH, WIDTH), pygame.SRCALPHA)
         self.grid_surface.fill((0, 0, 0, 0))  # Transparent background
 
         # Draw Walls on Grid Surface
@@ -107,8 +128,14 @@ class Game():
             # Blit Grid (pre-rendered for performance)
             self.display_screen.blit(self.grid_surface, (0, 0))
 
+            # Blit Pellets
+            for pellet in self.pellets:
+                pygame.draw.rect(self.display_screen, PEACH, pellet)
+            
+            self.draw_points()
+
             # Draw and Handle Sprites
-            self.all_sprites.update(dt, self.wall_objects, self.pacman, self.ghosts)
+            self.all_sprites.update(dt, self.wall_objects, self.pacman, self.ghosts, self.pellets, self.GAME_DATA)
             self.all_sprites.draw(self.display_screen)
 
             # Render Display

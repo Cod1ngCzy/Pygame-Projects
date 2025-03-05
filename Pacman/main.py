@@ -18,7 +18,8 @@ class Game():
         self.debug = False
 
         # Game Variables
-        self.GAME_DATA = {"points": 0} 
+        self.GAME_DATA = {"points": 0,
+                          "lives" : 3} 
         self.font = pygame.font.Font('assets/pixel.ttf', 16)
 
     # Sprites
@@ -51,7 +52,6 @@ class Game():
         ]
                 
     # Game Functions Calls
-
         # Create Grid Surface
         self.create_grid_surface()
 
@@ -72,13 +72,24 @@ class Game():
                         pygame.draw.line(self.grid_surface, BLACK, (x, 0), (x, HEIGHT))
                     for y in range(0, HEIGHT, TILE_SIZE):
                         pygame.draw.line(self.grid_surface, BLACK, (0, y), (WIDTH, y))
-        
+        # If Debug Mode
         if self.debug:
                 self.debug_mode()
         
+        # If Game End
+        if self.GAME_DATA['lives'] <= 0:
+            txt = self.font.render('GAME OVER', True, WHITE)
+            self.display_screen.blit(txt, (WIDTH / 2, HEIGHT / 2))
+            
+            self.running = False
+            
     def draw_points(self):
         text = self.font.render(f'{str(self.GAME_DATA['points'])}',True, WHITE)
         self.display_screen.blit(text, (20, 560))
+
+        # Draw Lives
+        for i in range(self.GAME_DATA['lives']):
+            pygame.draw.circle(self.display_screen,'yellow',(WIDTH - 30 - (i * 40),570), 15)
 
     def create_grid_surface(self):
         """Creates a pre-rendered grid surface to optimize performance."""

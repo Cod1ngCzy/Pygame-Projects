@@ -35,12 +35,12 @@ class Entities(pygame.sprite.Sprite):  # Base class for all game entities
         if isinstance(other_object, (list, tuple, set)):  # If checking multiple objects
             for obj in other_object:
                 if self.rect.colliderect(obj.rect):  # Check if colliding
-                    print(self.rect, obj.rect)  # Print collision details
+                    return True  # Print collision details
+            return False
         else:  # If checking a single object
-            if self.rect.colliderect(other_object.rect):  # Check if colliding
-                print(self.rect, other_object.rect)  # Print collision details
+            return self.rect.colliderect(other_object.rect)
 
-    def update(self, dt, walls, pacman, ghost, pellets, game_data):  # Update entity state each frame
+    def update(self, dt, walls, pacman, ghosts, pellets, game_data):  # Update entity state each frame
         self.move_timer += dt  # Increment move timer
         self.wall_collisions(walls)  # Check for wall collisions
 
@@ -49,6 +49,47 @@ class Pacman(Entities):  # Class for Pacman player
         super().__init__(groups)
         self.pos = pygame.Vector2(1, 1)  # Set initial position
         self.rect.topleft = self.pos * TILE_SIZE  # Position Pacman on the grid
+
+        # Collision Attributes
+        self.invincible = False # Invincibility flag
+        self.invincibility_timer = 0 # Track invincibility duration
+        self.invincibility_duration = 2 # 2 seconds of invincibility
+
+        # Collision tracking
+        self.last_collision_time = 0  # Track time of last collision
+        self.collision_cooldown = 1  # 1 second cooldown between collisions
+
+    def handle_ghost_collisions(self, ghosts, game_data, current_time):
+        # Check if enough time has passed since last collision
+        if current_time - self.last_collision_time < self.collision_cooldown:
+            return False
+        
+        # Precise collision check
+        for ghost in ghosts:
+            # Use a more precise collision detection
+            if self.rect.colliderect(ghost.rect):
+                # Reset Pacman position
+                self.pos = pygame.Vector2(1, 1)
+                self.rect.topleft = self.pos * TILE_SIZE
+                self.direction = pygame.Vector2(0, 0)
+                
+                # Reset Ghosts
+                for counter, reset_ghost in enumerate(ghosts):
+                    reset_ghost.pos = pygame.Vector2(6 + counter, 8)
+                    reset_ghost.direction = pygame.Vector2(0, 0)
+                    reset_ghost.path = []
+                    reset_ghost.last_move = []
+                
+                # Reduce lives and set invincibility
+                game_data['lives'] -= 1
+                self.is_invincible = True
+                self.invincibility_timer = 0
+                self.last_collision_time = current_time
+                
+                print('Collision Reset')
+                return True
+        
+        return False
 
     def input_movement(self):  # Handle player input for movement
         keys = pygame.key.get_pressed()  # Get keyboard input
@@ -61,25 +102,38 @@ class Pacman(Entities):  # Class for Pacman player
         elif keys[pygame.K_s]:  # Move down
             self.direction = pygame.Vector2(0, 1)
     
-    def eat_pellets(self, pellets):
+    def eat_pellets(self, pellets): # Handle Player for Eating Pellets and Adding Scores
         for row_index, pellet in enumerate(pellets):
             if self.rect.colliderect(pellet):
                 pellets.pop(row_index)
                 return True
 
-    def update(self, dt, walls, pacman, ghost, pellets, game_data):  # Update Pacman each frame
+    def update(self, dt, walls, pacman, ghosts, pellets, game_data):  # Update Pacman each frame
+        # Track Invincibility Timer
+        if self.invincible:
+            self.invincibility_timer += dt
+            if self.invincibility_timer >= 2:
+                self.invincible = False
+                self.invincibility_timer = 0
+
         self.input_movement()  # Process movement input
-    
+        
+        # Base Movement (1 sec per Tile)
         if self.move_timer >= 1 / self.speed:  # Check if it's time to move
             self.move_timer = 0  # Reset move timer
             self.pos += self.direction  # Move based on direction
             self.rect.topleft = self.pos * TILE_SIZE  # Update position on the grid 
         
+        # Pellet Eating
         if self.eat_pellets(pellets):
             game_data['points'] += 10
-            
-        self.collisions(ghost)  # Check for collisions with ghosts
-        super().update(dt, walls, pacman, ghost, pellets, game_data)  # Call parent update method
+        
+        # Handle Ghost Collisions
+        current_time = pygame.time.get_ticks() / 1000
+        if not self.invincible:
+            self.handle_ghost_collisions(ghosts, game_data, current_time)
+
+        super().update(dt, walls, pacman, ghosts, pellets, game_data)  # Call parent update method
 
 class Ghosts(Entities):  # Class for Ghost enemies
     def __init__(self, groups, color, pos_x, pos_y):

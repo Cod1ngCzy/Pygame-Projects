@@ -49,7 +49,7 @@ class Line:
             return pygame.Vector2(x, y)
 
 # Define a soft yellow color with transparency
-soft_yellow = (255, 255, 100, 200)
+soft_yellow = (255, 255, 150, 255)
 
 # Define a class to represent the observer (player)
 class Observer:
@@ -121,39 +121,21 @@ class Observer:
             # Draw polygon based on intersection results
             if current_intersection and next_intersection:
                 # Draw the visibility polygon
-                pygame.draw.polygon(display, soft_yellow, [
-                    line.start_point, 
-                    current_intersection, 
-                    next_intersection,
-                    next_line.start_point
-                ])
-    
+                pygame.draw.line(display, soft_yellow, line.start_point, current_intersection)
+                #pygame.draw.polygon(display, soft_yellow, [line.start_point, current_intersection, next_intersection,next_line.start_point])
             elif current_intersection:
                 # Only current ray hit an obstacle
-                pygame.draw.polygon(display, soft_yellow, [
-                    line.start_point, 
-                    current_intersection, 
-                    next_line.end_point,
-                    next_line.start_point
-                ])
+                pygame.draw.line(display, soft_yellow, line.end_point, current_intersection)
+               # pygame.draw.polygon(display, soft_yellow, [line.start_point, current_intersection, next_line.end_point,next_line.start_point])
             elif next_intersection:
                 # Only next ray hit an obstacle
-                pygame.draw.polygon(display, soft_yellow, [
-                    line.start_point, 
-                    line.end_point, 
-                    next_intersection,
-                    next_line.start_point
-                ])
+                pygame.draw.line(display, soft_yellow, line.start_point, next_intersection)
+                #pygame.draw.polygon(display, soft_yellow, [line.start_point, line.end_point, next_intersection,next_line.start_point])
             else:
                 # No obstacles hit by either ray
-                pygame.draw.polygon(display, soft_yellow, [
-                    line.start_point, 
-                    line.end_point, 
-                    next_line.end_point,
-                    next_line.start_point
-                ])
+                pygame.draw.line(display, soft_yellow, line.start_point, line.end_point)
+                #pygame.draw.polygon(display, soft_yellow, [line.start_point, line.end_point, next_line.end_point,next_line.start_point])
                     
-
     def update(self, dt, line):
         # Update the observer's position and draw the rays
         self.move(dt)
@@ -177,7 +159,7 @@ lines = [
 running = True
 while running:
     dt = clock.tick(60) / 1000  # Calculate delta time for smooth movement
-    display.fill((0, 0, 0))  # Clear the screen with black
+    display.fill('grey')  # Clear the screen with black
 
     # Handle events
     for event in pygame.event.get():

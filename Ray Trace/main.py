@@ -12,17 +12,38 @@ class Game():
         self.running = True
         
         # Game Time
-        self.game_time = None
+        self.start_time = None
+        self.elapsed_time = None
 
         # Classes 
         self.segment = Segment(0,0,100,100)
-        self.line = Line(100, 100, 100, 400)
         self.player = Observer(20,20,15,15)
-        
+
+        # Game Variables
+        self.border_lines = self.create_screen_border()
+
     def handle_events(self):
+        # Record Game Time
+        if self.start_time == None:
+            self.start_time = pygame.time.get_ticks()
+        self.elapsed_time = (pygame.time.get_ticks() - self.start_time) / 1000
+
+        # Handle Game Events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+    
+    def create_screen_border(self):
+        border_lines = [Line(20,20,WIDTH - 20,20),
+                        Line(20,20,20,HEIGHT - 20),
+                        Line(20,HEIGHT - 20,WIDTH - 20,HEIGHT - 20),
+                        Line(WIDTH - 20, HEIGHT - 20,WIDTH - 20,20)
+                        ]
+
+        return border_lines
+    
+    def create_maze_path(self):
+        pass
     
     def run(self):
         while self.running:
@@ -33,9 +54,9 @@ class Game():
 
             # Fill Screen
             self.display.fill('grey')
-
+            self.create_screen_border()
             # Instance Calls
-            self.player.update(delta_time, self.line)
+            self.player.update(delta_time, self.border_lines)
             
             # Update Scren
             pygame.display.update()

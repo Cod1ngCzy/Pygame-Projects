@@ -160,56 +160,47 @@ class Observer():
 
         return rays
 
-    def line_of_sight(self, obstacles):
-        rays = self.create_rays(30, 500, 30, 1)
+    def handle_rays(self, obstacles=None):
+        rays = self.create_rays(0, 500, 60, 1)
         intersection_groups = []
         polygon_points = []
-        ray_color = (255, 255, 100, 50)
+        polygon_points.append(rays[0].start_point) 
 
-        polygon_points.append(rays[0].start_point) # After creating rays, append the first ray to the points
-
+        # Handle Ray Intersect
         for i, ray in enumerate(rays):
             closest_point = None
             closest_obstacle = None
             closest_distance = float('inf')
 
-            # Check If Obstacle is Only One:
-            if isinstance(obstacles, list):
-                for obstacle in obstacles: # On the set of obstacle, check if ray hits either of them
-                    point = ray.intersect(obstacle) # If there is an intersecting point, return that value
-                    
-                    # If a Point Exist
-                    if point:
-                        # Handle Point Intersection 
-                        distance = (point - ray.start_point).length() # Store the distance
-                        if distance < closest_distance: # Check if that distance is the closest
-                            closest_distance = distance
-                            closest_point = point
-                            closest_obstacle = obstacle
+            obstacle_list = obstacles if isinstance(obstacles, list) else [obstacles] if obstacles is not None else []
 
-                if closest_point:
-                    polygon_points.append(closest_point)
-                    intersection_groups.append((i, closest_point, closest_obstacle))
-                else:
-                    polygon_points.append(ray.end_point)
-            elif obstacles == None:
-                polygon_points.append(ray.end_point)
+            for obstacle in obstacle_list:
+                point = ray.intersect(obstacle)
+
+                if point:
+                    distance = (point - ray.start_point).length()
+                    if distance < closest_distance:
+                        closest_distance = distance
+                        closest_point = point
+                        closest_obstacle = obstacle
+
+            if closest_point:
+                polygon_points.append(closest_point)
+                intersection_groups.append((i, closest_point, closest_obstacle))
             else:
-                intersection_point = ray.intersect(obstacles)
-                
-                if intersection_point:
-                    polygon_points.append(intersection_point)
-                    intersection_groups.append(intersection_point)
-                else:
-                    polygon_points.append(ray.end_point)
+                polygon_points.append(ray.end_point)
 
         if len(polygon_points) > 2:  # Need at least 3 points for a polygon
-            # Draw Visible Line
+            self.draw_rays(polygon_points, True)
+            self.draw_visible_edges(intersection_groups) # Pass the Collection of Intersecting Point
+
+    def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 255, 150, 50)):
+        if show_line:
+            for point in polygon_points:
+                pygame.draw.line(DISPLAY, ray_color, self.rect.center, point, 1)
+        else:
             pygame.gfxdraw.filled_polygon(DISPLAY, polygon_points, ray_color)
-    
-        # Handle Intersection Info
-        self.draw_visible_edges(intersection_groups) # Pass the Collection of Intersecting Point
-                    
+
     def draw_visible_edges(self, intersection_groups):
         # Group intersections by obstacle to draw edge lines
         obstacle_intersections = {}
@@ -242,5 +233,5 @@ class Observer():
     
     def update(self,dt,other_line=None):
         self.move(dt)
-        self.line_of_sight(other_line)
-        pygame.draw.circle(DISPLAY, self.color, (self.rect.x, self.rect.y), self.radius)
+        self.handle_rays(Line(100,100,100,400))
+        pygame.draw.circle(DISPLAY, self.color, self.pos, self.radius)

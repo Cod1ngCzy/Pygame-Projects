@@ -5,6 +5,7 @@ class Line():
         # Initialize the start and end points of the line using pygame.Vector2 for easy math operations
         self.start_point = pygame.Vector2(p_ax, p_ay)
         self.end_point = pygame.Vector2(p_bx, p_by)
+      
 
     def intersect(self, other_line):
         # Unpack the coordinates of the start and end points of both lines
@@ -30,6 +31,32 @@ class Line():
             x = x1 + ua * (x2 - x1)
             y = y1 + ua * (y2 - y1)
             return pygame.Vector2(x, y)
+    
+    def check_collision(self, circle_center, circle_radius):
+        circle_vector = circle_center - self.start_point
+        line_vector = self.end_point - self.start_point 
+        line_magnitude_squared = line_vector.length_squared()
+
+        if line_magnitude_squared == 0: # Handle case where start and end points are the same
+            return self.start_point.distance_to(circle_center) <= circle_radius
+
+        # Clamp to restrict projection value to 0 and 1
+        projection = circle_vector.dot(line_vector) / line_magnitude_squared # Projection Formula
+        projection = max(0, min(1, projection))
+
+        # Compute for Closest Point
+        closest_point = pygame.Vector2(
+            self.start_point.x + projection * (self.end_point.x - self.start_point.x ), # X value
+            self.start_point.y + projection * (self.end_point.y - self.start_point.y)
+        )
+
+        # Get Distance 
+        distance = math.sqrt((circle_center.x - closest_point.x) ** 2 + (circle_center.y - closest_point.y) ** 2)
+
+        if distance <= circle_radius:
+            return True, distance, pygame.Vector2(closest_point.x, closest_point.y)
+
+        return None
         
     def draw(self):
         pygame.draw.line(DISPLAY,(255,255,255), self.start_point, self.end_point)
@@ -191,7 +218,7 @@ class Observer():
                 polygon_points.append(ray.end_point)
 
         if len(polygon_points) > 2:  # Need at least 3 points for a polygon
-            self.draw_rays(polygon_points, True)
+            self.draw_rays(polygon_points)
             self.draw_visible_edges(intersection_groups) # Pass the Collection of Intersecting Point
 
     def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 255, 150, 50)):
@@ -233,5 +260,10 @@ class Observer():
     
     def update(self,dt,other_line=None):
         self.move(dt)
-        self.handle_rays(Line(100,100,100,400))
+        self.handle_rays(other_line)
+        for line in other_line:
+            value = line.check_collision(self.pos, self.radius)
+            if value:
+                print(value[2])
+
         pygame.draw.circle(DISPLAY, self.color, self.pos, self.radius)

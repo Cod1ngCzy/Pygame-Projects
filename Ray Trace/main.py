@@ -17,7 +17,7 @@ class Game():
 
         # Classes 
         self.segment = Segment(0,0,100,100)
-        self.player = Observer(20,20,15,15)
+        self.player = Observer(100,100,15,15)
 
         # Game Variables
         self.border_lines = self.create_screen_border()

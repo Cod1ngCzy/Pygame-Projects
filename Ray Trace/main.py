@@ -53,7 +53,7 @@ class Game():
             self.handle_events()
 
             # Fill Screen
-            self.display.fill('grey')
+            self.display.fill('black')
             self.create_screen_border()
             # Instance Calls
             self.player.update(delta_time, self.border_lines)

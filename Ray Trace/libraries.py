@@ -130,23 +130,42 @@ class Observer():
         self.direction = pygame.Vector2(0,0)
         self.color = (255,255,255) # White
     
-    def line_of_sight(self, obstacles):
-        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0],pygame.mouse.get_pos()[1])
-        angle_to_mouse = math.atan2(mouse_pos.y - self.rect.y, mouse_pos.x - self.rect.x) # Ensures it Follows Mouse
+    def create_rays(self, angle=0, ray_length=100, field_of_view=None, step=10):
+        length = ray_length
         rays = []
+
+        if field_of_view is not None: 
+            num_rays = math.ceil(field_of_view / step + 1)
+            mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0],pygame.mouse.get_pos()[1])
+            mouse_angle = math.atan2(mouse_pos.y - self.rect.y, mouse_pos.x - self.rect.x)
+
+            for i in range(num_rays):
+                angle_offset = -field_of_view / 2 + i * step
+                radian = mouse_angle + math.radians(angle_offset)
+
+                start_point = pygame.Vector2(self.rect.x, self.rect.y)
+                end_point = pygame.Vector2(self.rect.x + length * (math.cos(radian)),
+                                           self.rect.y + length * (math.sin(radian)))
+                
+                rays.append(Line(start_point.x,start_point.y,end_point.x,end_point.y))
+        else:
+            for i in range(0, (angle + 1), step):
+                radian = math.radians(i)
+
+                start_point = pygame.Vector2(self.rect.x, self.rect.y)
+                end_point = pygame.Vector2(self.rect.x + length * (math.cos(radian)),
+                                           self.rect.y + length * (math.sin(radian)))
+                
+                rays.append(Line(start_point.x,start_point.y,end_point.x,end_point.y))
+
+        return rays
+
+    def line_of_sight(self, obstacles):
+        rays = self.create_rays(30, 500, 30, 1)
         intersection_groups = []
         polygon_points = []
-        length = 500
+        ray_color = (255, 255, 100, 50)
 
-        # Create Rays based on an Angle
-        for angle in range(-20, 20, 1):
-            radian = angle_to_mouse + math.radians(angle)
-            start_point = pygame.Vector2(self.rect.x, self.rect.y)
-            end_point = pygame.Vector2(
-                self.pos.x + length * (math.cos(radian)),  # X value
-                self.pos.y + length * (math.sin(radian))  # Y value
-            )
-            rays.append(Line(start_point.x ,start_point.y, end_point.x, end_point.y))
         polygon_points.append(rays[0].start_point) # After creating rays, append the first ray to the points
 
         for i, ray in enumerate(rays):
@@ -173,18 +192,8 @@ class Observer():
                     intersection_groups.append((i, closest_point, closest_obstacle))
                 else:
                     polygon_points.append(ray.end_point)
-                
-                if len(polygon_points) > 2:  # Need at least 3 points for a polygon
-                    # Draw Visible Line
-                    pygame.gfxdraw.filled_polygon(DISPLAY, polygon_points, (255, 255, 0, 100))
-                    # Linestart → Lineend → Next_Linestart → Next_Lineend → Linestart (closing the shape)
-            
-                # Handle Intersection Info
-                self.draw_visible_edges(intersection_groups) # Pass the Collection of Intersecting Point
             elif obstacles == None:
                 polygon_points.append(ray.end_point)
-                if len(polygon_points) > 2:
-                    pygame.gfxdraw.filled_polygon(DISPLAY, polygon_points, (255, 255, 0, 50))
             else:
                 intersection_point = ray.intersect(obstacles)
                 
@@ -194,10 +203,12 @@ class Observer():
                 else:
                     polygon_points.append(ray.end_point)
 
-                if len(intersection_groups) > 2:
-                    pygame.draw.line(DISPLAY, 'white', intersection_groups[0], intersection_groups[-1], 5)
-                if len(polygon_points) > 2:
-                    pygame.gfxdraw.filled_polygon(DISPLAY, polygon_points, (255, 255, 0, 50))
+        if len(polygon_points) > 2:  # Need at least 3 points for a polygon
+            # Draw Visible Line
+            pygame.gfxdraw.filled_polygon(DISPLAY, polygon_points, ray_color)
+    
+        # Handle Intersection Info
+        self.draw_visible_edges(intersection_groups) # Pass the Collection of Intersecting Point
                     
     def draw_visible_edges(self, intersection_groups):
         # Group intersections by obstacle to draw edge lines
@@ -223,6 +234,7 @@ class Observer():
         keys = pygame.key.get_pressed()
         self.direction.x = int(keys[pygame.K_d]) - int(keys[pygame.K_a])
         self.direction.y = int(keys[pygame.K_s]) - int(keys[pygame.K_w])
+        self.direction = self.direction.normalize() if self.direction else self.direction
 
         # Base Movement
         self.pos += self.direction * dt * 300

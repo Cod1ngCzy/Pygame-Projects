@@ -2,37 +2,33 @@ from settings import *
 
 class Line():
     def __init__(self, p_ax, p_ay, p_bx, p_by):
-        # Initialize the start and end points of the line using pygame.Vector2 for easy math operations
         self.start_point = pygame.Vector2(p_ax, p_ay)
         self.end_point = pygame.Vector2(p_bx, p_by)
       
-
     def intersect(self, other_line):
-        # Unpack the coordinates of the start and end points of both lines
-        x1, y1 = self.start_point
-        x2, y2 = self.end_point
-        x3, y3 = other_line.start_point
-        x4, y4 = other_line.end_point
+        # Unpack the (x, y) coordinates of the start and end points for both line segments
+        (x1, y1), (x2, y2) = self.start_point, self.end_point               # Line 1: start and end points
+        (x3, y3), (x4, y4) = other_line.start_point, other_line.end_point   # Line 2: start and end points
 
-        # Calculate the denominator for the intersection formula
+        # Compute the determinant of the system (denominator in intersection formula)
         denominator = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)
 
         # If the denominator is zero, the lines are parallel and do not intersect
         if denominator == 0:
             return None
 
-        # Calculate the parameters ua and ub to determine if the lines intersect
-        ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator
-        ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator
+        # Calculate the intersection ratio (ua, ub) along each segment
+        intersection_ratio_L1 = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator # Represents how far the intersection is along Line 1 (0 = start, 1 = end)
+        intersection_ratio_L2 = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator # Represents how far the intersection is along Line 2 (0 = start, 1 = end)
 
-        # If both parameters are between 0 and 1, the lines intersect
-        if 0 <= ua <= 1 and 0 <= ub <= 1:
+        # Check if the intersection point lies within both line segments
+        if 0 <= intersection_ratio_L1 <= 1 and 0 <= intersection_ratio_L2 <= 1:
             # Calculate the intersection point
-            x = x1 + ua * (x2 - x1)
-            y = y1 + ua * (y2 - y1)
-            return pygame.Vector2(x, y)
+            x = x1 + intersection_ratio_L1 * (x2 - x1) # X-coordinate of intersection
+            y = y1 + intersection_ratio_L1 * (y2 - y1) # Y-coordinate of intersection
+            return pygame.Vector2(x, y) # Return intersection point as vector
     
-    def check_collision(self, circle_center, circle_radius):
+    def collide(self, circle_center, circle_radius):
         circle_vector = circle_center - self.start_point
         line_vector = self.end_point - self.start_point 
         line_magnitude_squared = line_vector.length_squared()
@@ -248,6 +244,9 @@ class Observer():
                     if next_index - current_index == 1: # It means all rays are consecutive order
                         pygame.draw.line(DISPLAY, 'white', current_point, next_point, 5)
 
+    def handle_collisions(self, lines=None):
+        pass 
+    
     def move(self,dt):
         keys = pygame.key.get_pressed()
         self.direction.x = int(keys[pygame.K_d]) - int(keys[pygame.K_a])
@@ -258,11 +257,11 @@ class Observer():
         self.pos += self.direction * dt * 300
         self.rect.center = self.pos
     
-    def update(self,dt,other_line=None):
+    def update(self,dt,lines=None):
         self.move(dt)
-        self.handle_rays(other_line)
-        for line in other_line:
-            value = line.check_collision(self.pos, self.radius)
+        self.handle_rays(lines)
+        for line in lines:
+            value = line.collide(self.pos, self.radius)
             if value:
                 print(value[2])
 

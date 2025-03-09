@@ -152,36 +152,54 @@ class Observer():
         self.pos = pygame.Vector2(x,y)
         self.direction = pygame.Vector2(0,0)
         self.color = (255,255,255) 
-        self.line_of_sight = self.create_rays(360, 500, 1, 1)
+        self.light_effects = []  # Store active light effects
+
+        # Line Of Sight Properties
+        self.line_of_sight_length = 200
+        self.line_of_sight = self.create_rays(60, self.line_of_sight_length, 1)
+        self.fov = self.create_rays(360, 30, 20)
     
-    def create_rays(self, angle=90, ray_length=100, num_rays=10, mouse_follow=False):
+    def create_rays(self, angle=90, ray_length=100, step=10):
         rays = []
-        num_rays = math.ceil(angle / num_rays + 1) 
+        num_rays = int(angle / step) + 1
 
-        if mouse_follow:
-            mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0],pygame.mouse.get_pos()[1])
-            mouse_angle = math.atan2(mouse_pos.y - self.rect.y, mouse_pos.x - self.rect.x)
-        else:
-            mouse_pos, mouse_angle = 0, 0
-        
         for i in range(num_rays):
-            angle_offset = -angle / 2 + i * num_rays
-            radian = mouse_angle + math.radians(angle_offset)
+            angle_offset = -angle / 2 + i * step
+            radian = math.radians(angle_offset)
 
-            start_point = pygame.Vector2(self.rect.x, self.rect.y)
             end_point = pygame.Vector2(self.rect.x + ray_length * (math.cos(radian)),
-                                           self.rect.y + ray_length * (math.sin(radian)))
-            rays.append(Line(start_point.x,start_point.y,end_point.x,end_point.y))
+                                       self.rect.y + ray_length * (math.sin(radian)))
+            
+            rays.append(Line(self.pos.x, self.pos.y, end_point.x, end_point.y))
 
         return rays
 
-    def handle_rays(self, obstacles=None):
+    def update_rays(self, rays, angle, ray_length, mouse_follow=False):
+
+        if mouse_follow:
+            mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
+            mouse_angle = math.atan2(mouse_pos.y - self.pos.y, mouse_pos.x - self.pos.x)
+        else:
+            mouse_pos, mouse_angle = 0, 0
+        
+        for i, ray in enumerate(rays):
+            angle_offset = -angle / 2 + i * (angle / (len(rays) - 1))
+            radian = mouse_angle + math.radians(angle_offset)
+
+            ray.start_point = self.pos
+            ray.end_point   = pygame.Vector2(
+                self.pos.x + ray_length * math.cos(radian),
+                self.pos.y + ray_length * math.sin(radian)
+            )
+
+    def handle_rays(self, ray, angle, ray_length, mouse_follow=False, show_lines=False, obstacles=None):
+        self.update_rays(ray, angle, ray_length, mouse_follow)
         intersection_groups = []
         polygon_points = []
-        polygon_points.append(self.line_of_sight[0].start_point) 
+        polygon_points.append(ray[0].start_point) 
 
         # Handle Ray Intersect
-        for i, line in enumerate(self.line_of_sight):
+        for i, line in enumerate(ray):
             closest_point = None
             closest_obstacle = None
             closest_distance = float('inf')
@@ -205,8 +223,9 @@ class Observer():
                 polygon_points.append(line.end_point)
 
         if len(polygon_points) > 2:  # Need at least 3 points for a polygon
-            self.draw_rays(polygon_points)
+            self.draw_rays(polygon_points, show_lines)
             self.draw_visible_edges(intersection_groups) # Pass the Collection of Intersecting Point
+            
 
     def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 255, 150, 50)):
         if show_line:
@@ -250,7 +269,41 @@ class Observer():
     
     def update(self,dt,lines=None):
         self.move(dt)
-        self.handle_rays(lines)
+        self.handle_rays(self.line_of_sight, 90, self.line_of_sight_length, True, False,lines)
+        self.handle_rays(self.fov,360, 50, False, False, lines)
         self.handle_collisions(lines)
 
         pygame.draw.circle(DISPLAY, self.color, self.pos, self.radius)
+
+class LightEffect:
+    def __init__(self, position, intensity=1.0, color=(255, 255, 150), radius=30):
+        self.position = position
+        self.intensity = intensity
+        self.color = color
+        self.radius = radius
+        self.lifetime = 0
+        self.max_lifetime = 60  # Frames or time units
+        
+    def update(self, dt):
+        self.lifetime += 1
+        # Fade effect over time
+        alpha = 255 * (1 - (self.lifetime / self.max_lifetime))
+        if self.lifetime >= self.max_lifetime:
+            return False  # Effect is done
+        return True
+        
+    def draw(self):
+        # Create a surface with alpha channel
+        surface = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)
+        
+        # Calculate alpha based on lifetime
+        alpha = 255 * (1 - (self.lifetime / self.max_lifetime))
+        
+        # Draw a radial gradient
+        for r in range(self.radius, 0, -1):
+            alpha_step = alpha * (r / self.radius)
+            color_with_alpha = (*self.color, alpha_step)
+            pygame.draw.circle(surface, color_with_alpha, (self.radius, self.radius), r)
+            
+        # Draw the light effect
+        DISPLAY.blit(surface, (self.position.x - self.radius, self.position.y - self.radius))

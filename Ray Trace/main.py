@@ -37,8 +37,12 @@ class Game():
         border_lines = [Line(20,20,WIDTH - 20,20),
                         Line(20,20,20,HEIGHT - 20),
                         Line(20,HEIGHT - 20,WIDTH - 20,HEIGHT - 20),
-                        Line(WIDTH - 20, HEIGHT - 20,WIDTH - 20,20)
+                        Line(WIDTH - 20, HEIGHT - 20,WIDTH - 20,20),
+                        Line(200, 100, 200, 400),
+                        Line(200, 400, 0, 400)
                         ]
+        
+        
 
         return border_lines
     
@@ -55,6 +59,7 @@ class Game():
             # Fill Screen
             self.display.fill('black')
             self.create_screen_border()
+            
             # Instance Calls
             self.player.update(delta_time, self.border_lines)
             

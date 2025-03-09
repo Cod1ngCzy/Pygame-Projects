@@ -151,46 +151,37 @@ class Observer():
         self.radius = 15
         self.pos = pygame.Vector2(x,y)
         self.direction = pygame.Vector2(0,0)
-        self.color = (255,255,255) # White
+        self.color = (255,255,255) 
+        self.line_of_sight = self.create_rays(360, 500, 1, 1)
     
-    def create_rays(self, angle=0, ray_length=100, field_of_view=None, step=10):
-        length = ray_length
+    def create_rays(self, angle=90, ray_length=100, num_rays=10, mouse_follow=False):
         rays = []
+        num_rays = math.ceil(angle / num_rays + 1) 
 
-        if field_of_view is not None: 
-            num_rays = math.ceil(field_of_view / step + 1)
+        if mouse_follow:
             mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0],pygame.mouse.get_pos()[1])
             mouse_angle = math.atan2(mouse_pos.y - self.rect.y, mouse_pos.x - self.rect.x)
-
-            for i in range(num_rays):
-                angle_offset = -field_of_view / 2 + i * step
-                radian = mouse_angle + math.radians(angle_offset)
-
-                start_point = pygame.Vector2(self.rect.x, self.rect.y)
-                end_point = pygame.Vector2(self.rect.x + length * (math.cos(radian)),
-                                           self.rect.y + length * (math.sin(radian)))
-                
-                rays.append(Line(start_point.x,start_point.y,end_point.x,end_point.y))
         else:
-            for i in range(0, (angle + 1), step):
-                radian = math.radians(i)
+            mouse_pos, mouse_angle = 0, 0
+        
+        for i in range(num_rays):
+            angle_offset = -angle / 2 + i * num_rays
+            radian = mouse_angle + math.radians(angle_offset)
 
-                start_point = pygame.Vector2(self.rect.x, self.rect.y)
-                end_point = pygame.Vector2(self.rect.x + length * (math.cos(radian)),
-                                           self.rect.y + length * (math.sin(radian)))
-                
-                rays.append(Line(start_point.x,start_point.y,end_point.x,end_point.y))
+            start_point = pygame.Vector2(self.rect.x, self.rect.y)
+            end_point = pygame.Vector2(self.rect.x + ray_length * (math.cos(radian)),
+                                           self.rect.y + ray_length * (math.sin(radian)))
+            rays.append(Line(start_point.x,start_point.y,end_point.x,end_point.y))
 
         return rays
 
     def handle_rays(self, obstacles=None):
-        rays = self.create_rays(0, 500, 60, 1)
         intersection_groups = []
         polygon_points = []
-        polygon_points.append(rays[0].start_point) 
+        polygon_points.append(self.line_of_sight[0].start_point) 
 
         # Handle Ray Intersect
-        for i, ray in enumerate(rays):
+        for i, line in enumerate(self.line_of_sight):
             closest_point = None
             closest_obstacle = None
             closest_distance = float('inf')
@@ -198,10 +189,10 @@ class Observer():
             obstacle_list = obstacles if isinstance(obstacles, list) else [obstacles] if obstacles is not None else []
 
             for obstacle in obstacle_list:
-                point = ray.intersect(obstacle)
+                point = line.intersect(obstacle)
 
                 if point:
-                    distance = (point - ray.start_point).length()
+                    distance = (point - line.start_point).length()
                     if distance < closest_distance:
                         closest_distance = distance
                         closest_point = point
@@ -211,7 +202,7 @@ class Observer():
                 polygon_points.append(closest_point)
                 intersection_groups.append((i, closest_point, closest_obstacle))
             else:
-                polygon_points.append(ray.end_point)
+                polygon_points.append(line.end_point)
 
         if len(polygon_points) > 2:  # Need at least 3 points for a polygon
             self.draw_rays(polygon_points)
@@ -246,7 +237,7 @@ class Observer():
 
     def handle_collisions(self, lines=None):
         pass 
-    
+
     def move(self,dt):
         keys = pygame.key.get_pressed()
         self.direction.x = int(keys[pygame.K_d]) - int(keys[pygame.K_a])
@@ -260,9 +251,6 @@ class Observer():
     def update(self,dt,lines=None):
         self.move(dt)
         self.handle_rays(lines)
-        for line in lines:
-            value = line.collide(self.pos, self.radius)
-            if value:
-                print(value[2])
+        self.handle_collisions(lines)
 
         pygame.draw.circle(DISPLAY, self.color, self.pos, self.radius)

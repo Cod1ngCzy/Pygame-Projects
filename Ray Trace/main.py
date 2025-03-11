@@ -32,6 +32,15 @@ class Game():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+        
+        keys = pygame.key.get_just_pressed()
+        if keys[pygame.K_r]:
+            self.player.show_ray_lines = not self.player.show_ray_lines
+        elif keys[pygame.K_RIGHTBRACKET] and self.player.ray_length != 1000:
+            self.player.ray_length += 100
+        elif keys[pygame.K_LEFTBRACKET] and self.player.ray_length != 0:
+            self.player.ray_length -= 100
+
     
     def create_screen_border(self):
         border_lines = [Line(20,20,WIDTH - 20,20),
@@ -41,8 +50,6 @@ class Game():
                         Line(200, 100, 200, 400),
                         Line(200, 400, 0, 400)
                         ]
-        
-        
 
         return border_lines
     

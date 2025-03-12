@@ -1,3 +1,4 @@
+import pygame.gfxdraw
 from settings import *
 from libraries import *
 
@@ -22,6 +23,7 @@ class Game():
         # Game Variables
         self.border_lines = self.create_screen_border()
 
+
     def handle_events(self):
         # Record Game Time
         if self.start_time == None:
@@ -41,7 +43,6 @@ class Game():
         elif keys[pygame.K_LEFTBRACKET] and self.player.ray_length != 0:
             self.player.ray_length -= 100
 
-    
     def create_screen_border(self):
         border_lines = [Line(20,20,WIDTH - 20,20),
                         Line(20,20,20,HEIGHT - 20),
@@ -64,7 +65,7 @@ class Game():
             self.handle_events()
 
             # Fill Screen
-            self.display.fill('black')
+            self.display.fill((10,10,10))
             self.create_screen_border()
             
             # Instance Calls

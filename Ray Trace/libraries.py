@@ -1,3 +1,5 @@
+import pygame.gfxdraw
+import pygame.gfxdraw
 from settings import *
 
 class Line():
@@ -145,17 +147,31 @@ class Segment():
         self.handle_position()
         self.show_rect_properties(True, True)
 
+class Ray():
+    def __init__(self, angle=None,step=None,mouse_follow=False):
+        self.start_point = pygame.Vector2()
+        self.end_point = pygame.Vector2()
+        self.rays = []
+        self.ray_angle = angle
+        self.ray_num = step
+
+        # Initialize Ray 
+
+    
+
+
+
 class Observer():
     def __init__(self,x,y,width,height):
         self.rect = pygame.Rect(x,y,width,height)
         self.radius = 15
         self.pos = pygame.Vector2(x,y)
         self.direction = pygame.Vector2(0,0)
-        self.color = (255,255,255) 
+        self.color = (0, 0, 0, 150) #RGBA Value 
 
         # Ray Properties
         self.ray_length = 200
-        self.ray_angle = 90
+        self.ray_angle = 1
         self.ray_step = 1
         self.show_ray_lines = False
 
@@ -289,7 +305,7 @@ class Observer():
             self.draw_rays(polygon_points, show_lines)  # Draws the filled polygon (or outlines if specified)
             self.draw_visible_edges(intersection_groups)  # Draws edges connecting intersection points
             
-    def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 255, 150, 50)):
+    def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 240, 150, 180) ):
         if show_line or self.show_ray_lines:
             for point in polygon_points:
                 pygame.draw.line(DISPLAY, ray_color, self.rect.center, point, 1)
@@ -314,8 +330,22 @@ class Observer():
                     next_index, next_point = points[i + 1]
 
                     if next_index - current_index == 1: # It means all rays are consecutive order
-                        pygame.draw.line(DISPLAY, 'white', current_point, next_point, 5)
-
+                        pygame.draw.line(DISPLAY, 
+                            (255, 240, 200, 200),  # Bright illumination
+                            current_point, 
+                            next_point, 
+                            3
+                        )
+                        
+                        # Add a subtle glow around the edge
+                        pygame.gfxdraw.line(DISPLAY, 
+                                int(current_point.x), 
+                                int(current_point.y), 
+                                int(next_point.x), 
+                                int(next_point.y), 
+                                (255, 240, 200, 100)
+                            )
+                        
     def handle_collisions(self, lines=None):
         for line in lines:
             collision_point = line.collide(self.pos, self.radius)
@@ -341,5 +371,6 @@ class Observer():
         self.handle_rays(self.fov,360, 50, False, False, lines)
         self.handle_collisions(lines)
 
-        pygame.draw.circle(DISPLAY, self.color, self.pos, self.radius)
+        pygame.gfxdraw.filled_circle(DISPLAY, int(self.pos.x), int(self.pos.y), self.radius, self.color)
+
 

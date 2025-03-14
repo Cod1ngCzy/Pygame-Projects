@@ -148,18 +148,51 @@ class Segment():
         self.show_rect_properties(True, True)
 
 class Ray():
-    def __init__(self, angle=None,step=None,mouse_follow=False):
-        self.start_point = pygame.Vector2()
-        self.end_point = pygame.Vector2()
-        self.rays = []
-        self.ray_angle = angle
-        self.ray_num = step
+    def __init__(self, origin=pygame.Vector2(), ray_length=0,ray_angle=0, ray_num=0, mouse_follow=False):
+        self.origin = origin
+        self.ray_angle = ray_angle
+        self.ray_num = ray_num
+        self.ray_length = ray_length
 
         # Initialize Ray 
-
+        self.rays = self.create(self.ray_angle, self.ray_length, self.ray_num)
     
+    def create(self, ray_angle, ray_length, step):
+        """
+            Creates and returns a list of ray segments originating from the object's position (Origin or Reference Point).
+            
+            Args:
+                ray_angle (float): The total spread of rays in degrees (e.g., 90°).
+                ray_length (float): The length of each ray.
+                ray_step (float): The angle difference between each ray.
+            
+            Returns:
+                rays: A list of Line objects representing the rays.
+        """
+        rays = []
+        # If multiple rays are created
+        if step > 2:
+            num_rays = int(ray_angle / step) + 1
+        else:
+            num_rays = step
+        
+        # Intialize Angle
+        for i in range(num_rays):
+            angle_offset = -ray_angle / 2 + i * step 
+            radian = math.radians(angle_offset)
 
+            end_point = pygame.Vector2(
+                self.origin.x + ray_length * math.cos(radian),
+                self.origin.y + ray_length * math.sin(radian)
+            )
 
+            rays.append(Line(self.origin.x, self.origin.y, end_point.x, end_point.y))
+        
+        return rays
+    
+    def cast(self):
+        for ray in self.rays:
+            ray.draw()
 
 class Observer():
     def __init__(self,x,y,width,height):
@@ -171,7 +204,7 @@ class Observer():
 
         # Ray Properties
         self.ray_length = 200
-        self.ray_angle = 1
+        self.ray_angle = 90
         self.ray_step = 1
         self.show_ray_lines = False
 
@@ -206,7 +239,7 @@ class Observer():
             
             # Create a Line object from the starting point (self.pos) to the calculated end point
             rays.append(Line(self.pos.x, self.pos.y, end_point.x, end_point.y))
-
+    
         return rays
 
     def update_rays(self, rays, ray_angle, ray_length, mouse_follow=False):

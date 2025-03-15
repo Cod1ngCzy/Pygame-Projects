@@ -1,4 +1,4 @@
-import pygame, sys, math, json
+import pygame, sys, math, json, csv
 from os.path import join
 from pygame import gfxdraw
 
@@ -15,4 +15,8 @@ DISPLAY = pygame.display.set_mode((WIDTH, HEIGHT))
 TILE_SIZE = 64
 
 # Calculate how many tiles fit into the screen (in terms of width and height)
-GRID_WIDTH, GRID_HEIGHT = WIDTH / TILE_SIZE, HEIGHT / TILE_SIZE
+GRID_WIDTH, GRID_HEIGHT = WIDTH // TILE_SIZE, HEIGHT // TILE_SIZE
+
+
+
+

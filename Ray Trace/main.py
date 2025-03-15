@@ -33,45 +33,24 @@ class Game():
         self.border_lines = self.create_screen_border()
 
     def handle_events(self):
-        """
-        Handles user input and game events:
-        - Captures key presses and window close events.
-        - Toggles ray visibility or adjusts ray length based on input.
-        """
-        # Record Game Time
         if self.start_time is None:
-            # Initialize the start time at the beginning of the game
             self.start_time = pygame.time.get_ticks()
-        # Calculate the elapsed time in seconds
         self.elapsed_time = (pygame.time.get_ticks() - self.start_time) / 1000
 
-        # Event handling loop
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                self.running = False  # Stop the game if the window is closed
+                self.running = False  
         
-        # Capture key press events
         keys = pygame.key.get_just_pressed()
         
-        # Toggle ray visibility with "R" key
         if keys[pygame.K_r]:
             self.player.show_ray_lines = not self.player.show_ray_lines
-        
-        # Increase ray length with "]" key (up to 1000)
         elif keys[pygame.K_RIGHTBRACKET] and self.player.ray_length != 1000:
             self.player.ray_length += 100
-        
-        # Decrease ray length with "[" key (down to 0)
         elif keys[pygame.K_LEFTBRACKET] and self.player.ray_length != 0:
             self.player.ray_length -= 100
 
     def create_screen_border(self):
-        """
-        Creates the border walls and additional obstacles on the screen.
-        Each wall is represented as a Line object.
-        Returns:
-            list: A list of Line objects defining the screen border and obstacles.
-        """
         border_lines = [
             # Top border
             Line(20, 20, WIDTH - 20, 20),  
@@ -87,13 +66,6 @@ class Game():
             Line(200, 400, 0, 400)  
         ]
         return border_lines
-    
-    def create_maze_path(self):
-        """
-        Placeholder for maze generation logic.
-        To be implemented later.
-        """
-        pass
     
     def run(self):
         """

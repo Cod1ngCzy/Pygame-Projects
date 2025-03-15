@@ -153,182 +153,90 @@ class Ray():
         self.ray_angle = ray_angle
         self.ray_num = ray_num
         self.ray_length = ray_length
+        self.mouse_follow = mouse_follow
 
         # Initialize Ray 
-        self.rays = self.create(self.ray_angle, self.ray_length, self.ray_num)
+        self.rays = self.create()
     
-    def create(self, ray_angle, ray_length, step):
-        """
-            Creates and returns a list of ray segments originating from the object's position (Origin or Reference Point).
-            
-            Args:
-                ray_angle (float): The total spread of rays in degrees (e.g., 90°).
-                ray_length (float): The length of each ray.
-                ray_step (float): The angle difference between each ray.
-            
-            Returns:
-                rays: A list of Line objects representing the rays.
-        """
+    def create(self):
         rays = []
-        # If multiple rays are created
-        if step > 2:
-            num_rays = int(ray_angle / step) + 1
-        else:
-            num_rays = step
-        
-        # Intialize Angle
-        for i in range(num_rays):
-            angle_offset = -ray_angle / 2 + i * step 
+
+        for i in range(self.ray_num):
+            angle_offset = -self.ray_angle / 2 + i * self.ray_num 
             radian = math.radians(angle_offset)
 
             end_point = pygame.Vector2(
-                self.origin.x + ray_length * math.cos(radian),
-                self.origin.y + ray_length * math.sin(radian)
+                self.origin.x + self.ray_length * math.cos(radian),
+                self.origin.y + self.ray_length * math.sin(radian)
             )
 
             rays.append(Line(self.origin.x, self.origin.y, end_point.x, end_point.y))
         
         return rays
     
-    def cast(self):
-        for ray in self.rays:
-            ray.draw()
+    def update(self, new_pos):
+        mouse_pos, mouse_angle = 0, 0
+        if self.mouse_follow:
+            mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
+            mouse_angle = math.atan2(mouse_pos.y - new_pos.y, mouse_pos.x - new_pos.x)
 
+        for i, ray in enumerate(self.rays):
+            angle_offset = -self.ray_angle / 2 + i * (self.ray_angle / (len(self.rays) - 1))
+            radian = mouse_angle + math.radians(angle_offset)
+
+            ray.start_point = new_pos
+            ray.end_point = pygame.Vector2(
+                new_pos.x + self.ray_length * math.cos(radian),
+                new_pos.y + self.ray_length * math.sin(radian)
+            )
+        
 class Observer():
     def __init__(self,x,y,width,height):
         self.rect = pygame.Rect(x,y,width,height)
+        self.pos = pygame.Vector2(self.rect.x,self.rect.y)
         self.radius = 15
-        self.pos = pygame.Vector2(x,y)
         self.direction = pygame.Vector2(0,0)
         self.color = (0, 0, 0, 150) #RGBA Value 
 
         # Ray Properties
         self.ray_length = 200
         self.ray_angle = 90
-        self.ray_step = 1
+        self.ray_num = 20
         self.show_ray_lines = False
 
         # Create Rays
-        self.line_of_sight = self.create_rays(self.ray_angle, self.ray_length, self.ray_step)
-        self.fov = self.create_rays(360, 30, 20)
-        
-    def create_rays(self, ray_angle=90, ray_length=100, ray_step=10):
-        """
-            Creates and returns a list of ray segments originating from the object's position.
-            
-            Args:
-                ray_angle (float): The total spread of rays in degrees (e.g., 90°).
-                ray_length (float): The length of each ray.
-                ray_step (float): The angle difference between each ray.
-            
-            Returns:
-                list: A list of Line objects representing the rays.
-        """
+        self.line_of_sight = Ray(self.pos, self.ray_length, self.ray_angle, self.ray_num, True)     
+        self.surrounding_light = Ray(self.pos, 50, 360, 30, True)  
 
-        rays = [] # List to store generated rays
-        num_rays = int(ray_angle / ray_step) + 1 # Calculate the number of rays based on step size
-
-        for i in range(num_rays):
-            # Calculate the angle offset for each ray (starting from -half the angle spread)
-            angle_offset = -ray_angle / 2 + i * ray_step
-            radian = math.radians(angle_offset)  # Convert angle to radians
-
-            # Calculate the end point of the ray using trigonometry (cosine and sine for x, y)
-            end_point = pygame.Vector2(self.rect.x + ray_length * (math.cos(radian)),
-                                       self.rect.y + ray_length * (math.sin(radian)))
-            
-            # Create a Line object from the starting point (self.pos) to the calculated end point
-            rays.append(Line(self.pos.x, self.pos.y, end_point.x, end_point.y))
-    
-        return rays
-
-    def update_rays(self, rays, ray_angle, ray_length, mouse_follow=False):
-        """
-            Updates the position and direction of rays based on the object's position 
-            and an optional mouse-following behavior.
-
-            Args:
-                rays (list): List of Line objects representing the rays.
-                ray_angle (float): Total spread of rays in degrees.
-                ray_length (float): Length of each ray.
-                mouse_follow (bool): If True, rays will follow the mouse position.
-            """
-        
-        if mouse_follow:
-            # Get mouse position as a Vector2
-            mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
-            # Calculate angle from the object position to the mouse position using atan2
-            mouse_angle = math.atan2(mouse_pos.y - self.pos.y, mouse_pos.x - self.pos.x)
-        else:
-            # If not following mouse, set default values
-            mouse_pos, mouse_angle = 0, 0
-        
-        for i, ray in enumerate(rays):
-            # Calculate the angle offset for each ray (starting from -half the angle spread)
-            angle_offset = -ray_angle / 2 + i * (ray_angle / (len(rays) - 1))
-            # Add the base angle (mouse_angle) to the offset
-            radian = mouse_angle + math.radians(angle_offset)
-
-            # Set the ray's starting point to the object's position
-            ray.start_point = self.pos
-            # Calculate the end point of the ray using trigonometry (cosine and sine for x, y)
-            ray.end_point   = pygame.Vector2(
-                self.pos.x + ray_length * math.cos(radian),
-                self.pos.y + ray_length * math.sin(radian)
-            )
-
-    def handle_rays(self, ray, angle, ray_length, mouse_follow=False, show_lines=False, obstacles=None):
-        """
-            Handles the raycasting process, including updating rays, detecting intersections,
-            and drawing the resulting visibility polygon.
-
-            Args:
-                ray (list): List of Line objects representing the rays.
-                angle (float): Total spread of rays in degrees.
-                ray_length (float): Maximum length of each ray.
-                mouse_follow (bool): If True, rays will follow the mouse position.
-                show_lines (bool): If True, shows the rays as lines for visualization.
-                obstacles (list or object): List of obstacles (or a single obstacle) that rays can intersect.
-        """
-
-        # Step 1: Update ray positions
-        self.update_rays(ray, angle, ray_length, mouse_follow)
-
-        # Step 2: Initialize data for tracking intersections and polygon points
+    def handle_rays(self, ray, show_lines=False, obstacles=None):
         intersection_groups = []    # Tracks intersected points and their obstacles
         polygon_points = []         # List of points that will form the visibility polygon
         polygon_points.append(ray[0].start_point)  # First polygon point is the ray's starting point
 
-        # Step 3: Ray-Obstacle Intersection Logic
         for i, line in enumerate(ray):
             closest_point = None           # Tracks the nearest intersection point
             closest_obstacle = None        # Tracks the obstacle associated with the nearest point
             closest_distance = float('inf')  # Starts with infinity to ensure finding the closest point
 
-            # Step 4: Ensure `obstacles` is iterable (handles both list and single obstacle cases)
             obstacle_list = (
                 obstacles if isinstance(obstacles, list)
                 else [obstacles] if obstacles is not None
                 else []
             )
 
-            # Step 5: Check each obstacle for intersections with the current ray
             for obstacle in obstacle_list:
-                point = line.intersect(obstacle)  # Calculate intersection point
+                point = line.intersect(obstacle)  
 
                 if point:
-                    # Calculate distance between ray start and intersection point
                     distance = (point - line.start_point).length()
 
-                    # Step 6: Track the closest intersection point
                     if distance < closest_distance:
                         closest_distance = distance
                         closest_point = point
                         closest_obstacle = obstacle
 
-            # Step 7: Append the closest point (or endpoint if no intersection)
             if closest_point:
-                polygon_points.append(closest_point)  # Closest point becomes part of the visibility polygon
+                polygon_points.append(closest_point)  
                 intersection_groups.append((i, closest_point, closest_obstacle))
             else:
                 polygon_points.append(line.end_point)
@@ -385,7 +293,6 @@ class Observer():
             if collision_point is not None:
                 collision_vector = pygame.Vector2(self.pos - collision_point)
                 collision_vector = collision_vector.normalize()
-                
                 self.pos = collision_point + collision_vector * self.radius
 
     def move(self,dt):
@@ -400,8 +307,10 @@ class Observer():
     
     def update(self,dt,lines=None):
         self.move(dt)
-        self.handle_rays(self.line_of_sight,self.ray_angle, self.ray_length, True, False, lines)
-        self.handle_rays(self.fov,360, 50, False, False, lines)
+        self.line_of_sight.update(self.pos)
+        self.surrounding_light.update(self.pos)
+        self.handle_rays(self.line_of_sight.rays, False, lines)
+        self.handle_rays(self.surrounding_light.rays, False, lines)
         self.handle_collisions(lines)
 
         pygame.gfxdraw.filled_circle(DISPLAY, int(self.pos.x), int(self.pos.y), self.radius, self.color)

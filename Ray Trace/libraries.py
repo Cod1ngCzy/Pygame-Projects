@@ -196,19 +196,20 @@ class Observer():
         self.pos = pygame.Vector2(self.rect.x,self.rect.y)
         self.radius = 15
         self.direction = pygame.Vector2(0,0)
-        self.color = (0, 0, 0, 150) #RGBA Value 
+        self.color = (0, 0, 0, 150) 
 
         # Ray Properties
-        self.ray_length = 200
-        self.ray_angle = 90
-        self.ray_num = 20
+        self.ray_length = 400
+        self.ray_angle = 30
+        self.ray_num = 30
+        self.ray_color = (173, 216, 230, 255)
         self.show_ray_lines = False
 
         # Create Rays
         self.line_of_sight = Ray(self.pos, self.ray_length, self.ray_angle, self.ray_num, True)     
         self.surrounding_light = Ray(self.pos, 50, 360, 30, True)  
 
-    def handle_rays(self, ray, show_lines=False, obstacles=None):
+    def handle_rays(self, ray, show_lines=False, obstacles=None, light_surface=pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)):
         intersection_groups = []    # Tracks intersected points and their obstacles
         polygon_points = []         # List of points that will form the visibility polygon
         polygon_points.append(ray[0].start_point)  # First polygon point is the ray's starting point
@@ -243,15 +244,15 @@ class Observer():
 
         # Step 8: Draw the visibility polygon if it has enough points
         if len(polygon_points) > 2:  # At least 3 points are required for a valid polygon
-            self.draw_rays(polygon_points, show_lines)  # Draws the filled polygon (or outlines if specified)
+            self.draw_rays(polygon_points, show_lines, (255, 255, 100, 255) , light_surface)  # Draws the filled polygon (or outlines if specified)
             self.draw_visible_edges(intersection_groups)  # Draws edges connecting intersection points
             
-    def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 240, 150, 180) ):
+    def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 255, 255, 255), light_surface=pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)):
         if show_line or self.show_ray_lines:
             for point in polygon_points:
-                pygame.draw.line(DISPLAY, ray_color, self.rect.center, point, 1)
+                pygame.draw.line(light_surface, ray_color, self.rect.center, point, 1)
         else:
-            pygame.gfxdraw.filled_polygon(DISPLAY, polygon_points, ray_color)
+            pygame.gfxdraw.filled_polygon(light_surface, polygon_points, ray_color)
 
     def draw_visible_edges(self, intersection_groups):
         # Group intersections by obstacle to draw edge lines
@@ -305,12 +306,12 @@ class Observer():
         self.pos += self.direction * dt * 300
         self.rect.center = self.pos
     
-    def update(self,dt,lines=None):
+    def update(self,dt,lines=None, light_surface=pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)):
         self.move(dt)
         self.line_of_sight.update(self.pos)
         self.surrounding_light.update(self.pos)
-        self.handle_rays(self.line_of_sight.rays, False, lines)
-        self.handle_rays(self.surrounding_light.rays, False, lines)
+        self.handle_rays(self.line_of_sight.rays, False, lines, light_surface)
+        self.handle_rays(self.surrounding_light.rays, False, lines, light_surface)
         self.handle_collisions(lines)
 
         pygame.gfxdraw.filled_circle(DISPLAY, int(self.pos.x), int(self.pos.y), self.radius, self.color)

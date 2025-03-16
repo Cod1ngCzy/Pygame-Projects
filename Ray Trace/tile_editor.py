@@ -7,16 +7,6 @@ pygame.display.set_caption('Tile Editor')
 running = True
 clock = pygame.time.Clock()
 
-class Tile():
-    def __init__(self, image, x,y):
-        self.image = pygame.image.load(join('assets', 'tiles', f'{image}'))
-        self.image = pygame.transform.scale(self.image, (TILE_SIZE, TILE_SIZE))
-        self.rect = self.image.get_frect(topleft = (x,y))
-        self.pos = pygame.Vector2(self.rect.x, self.rect.y)
-    
-    def draw(self):
-        display.blit(self.image, self.pos)
-
 class Tilemap():
     def __init__(self):
         self.tilemap = self.load_map()
@@ -24,8 +14,12 @@ class Tilemap():
         self.rows = GRID_WIDTH 
         self.cols = GRID_HEIGHT
         self.tiles = []
-
-        self.load_tiles()
+    
+    def load_tiles(self):
+        for y, tiles in enumerate(self.tilemap):
+            for x, tile in enumerate(tiles):
+                if int(tile) == 1:
+                    pygame.draw.rect(display, 'blue', (x * self.tilesize, y * self.tilesize, self.tilesize, self.tilesize))
 
     def load_map(self):
         map = []
@@ -41,27 +35,31 @@ class Tilemap():
             for row in self.tilemap:
                 writer.writerow(row)
     
-    def load_tiles(self):
-        x,y = 0, 0
-        for tiles in self.tilemap:
-            x = 0
-            for tile in tiles:
-                if int(tile) == 1:
-                    pygame.draw.rect(display, 'blue', (x * self.tilesize, y * self.tilesize, self.tilesize, self.tilesize))
-                    self.tiles.append(Tile('Grass0 - 0.png', x * self.tilesize, y * self.tilesize))
-                x += 1
-            y += 1
+    def load_tiles_image(self):
+        self.tiles.extend(
+            Tile('Grass0 - 0.png', x * self.tilesize, y * self.tilesize)
+            for y, tiles in enumerate(self.tilemap)
+            for x, tile in enumerate(tiles)
+            if int(tile) == 1
+        )
+
+        self.tiles.extend(
+            Tile('Tree - 0.png', x * self.tilesize, y * self.tilesize)
+            for y, tiles in enumerate(self.tilemap)
+            for x, tile in enumerate(tiles)
+            if int(tile) == 2
+        )
+
+        for tile in self.tiles:
+            tile.draw()
 
     def show_grid(self):
         for cols in range(self.cols):
             for rows in range(self.rows):
                 pygame.draw.rect(display, 'grey', (rows * self.tilesize, cols * self.tilesize, self.tilesize, self.tilesize), 1)
-
+    
     def edit_tiles(self):
-        self.show_grid()
-
-        for tile in self.tiles:
-           tile.draw()
+        self.load_tiles_image()
 
         mouse_pos = pygame.Vector2(
             min(max(pygame.mouse.get_pos()[0] // self.tilesize, 0), len(self.tilemap[0]) - 1),

@@ -5,32 +5,21 @@ from libraries import *
 # Game Class
 class Game():
     def __init__(self):
-        # Initialize pygame modules
         pygame.init()
-        
-        # Set the window title
         pygame.display.set_caption('Black Forest')
-        
-        # Create the display window from settings.py
         self.display = DISPLAY
-        
-        # Create a clock to control the frame rate
         self.clock = pygame.time.Clock()
+        self.initialized = False
+        self.running = True  
+        self.start_time = None  
+        self.elapsed_time = None  
+        self.segment = Segment(0, 0, 100, 100)  
+        self.player = Observer(100, 100, 15, 15)  
+        self.border_lines = []
+        self.tiles = TILES
 
-        # Game Flags
-        self.running = True  # Set to False to stop the game loop
-        
-        # Game Time
-        self.start_time = None  # Will store the starting time of the game
-        self.elapsed_time = None  # Will calculate the total elapsed game time
-
-        # Create Game Objects
-        # Segment and player are defined in libraries.py
-        self.segment = Segment(0, 0, 100, 100)  # Create a segment at (0,0) with width and height of 100
-        self.player = Observer(100, 100, 15, 15)  # Create a player at (100,100) with width and height of 15
-
-        # Create screen border lines
-        self.border_lines = self.create_screen_border()
+        self.light_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        self.dark_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
     def handle_events(self):
         if self.start_time is None:
@@ -67,14 +56,22 @@ class Game():
         ]
         return border_lines
     
+    def render(self, delta_time):
+        # Render Tile Images
+        for tile in self.tiles:
+            tile.draw()
+
+        # Create Surface
+        self.light_surface.fill((0,0,0,0))
+        self.dark_overlay.fill((0,0,0,255))
+
+        self.player.update(delta_time, self.border_lines, self.light_surface)
+
+        self.dark_overlay.blit(self.light_surface, (0, 0), special_flags=pygame.BLEND_RGBA_SUB)
+
+        self.display.blit(self.dark_overlay, (0, 0))
+    
     def run(self):
-        """
-        Main game loop:
-        - Handles events
-        - Updates game state
-        - Renders objects to the screen
-        - Maintains frame rate
-        """
         while self.running:
             # Get the time difference (delta time) between frames (in seconds)
             delta_time = self.clock.tick(FPS) / 1000
@@ -82,14 +79,7 @@ class Game():
             # Handle user input and game events
             self.handle_events()
 
-            # Fill the screen with a dark gray color
-            self.display.fill((10, 10, 10))
-
-            # Draw the screen borders
-            self.create_screen_border()
-            
-            # Update player and other game objects
-            self.player.update(delta_time, self.border_lines)
+            self.render(delta_time)
 
             # Render the updated frame
             pygame.display.update()

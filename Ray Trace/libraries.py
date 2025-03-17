@@ -56,8 +56,8 @@ class Line():
 
         return None
     
-    def draw(self):
-        pygame.draw.line(DISPLAY,(255,255,255), self.start_point, self.end_point)
+    def draw(self, display):
+        pygame.draw.line(display,(255,255,255), self.start_point, self.end_point)
 
 class Segment():
     def __init__(self, x, y, width, height):
@@ -156,7 +156,7 @@ class Ray():
         self.mouse_follow = mouse_follow
 
         # Initialize Ray 
-        self.rays = self.create()
+        self.segments = self.create()
     
     def create(self):
         rays = []
@@ -174,14 +174,42 @@ class Ray():
         
         return rays
     
-    def update(self, new_pos):
+    def handle_rays(self, obstacles):
+        intersections = []
+        intersections.append(self.origin)
+        obstacle_list = (obstacles if isinstance(obstacles, list) else [obstacles] if obstacles is not None else [])
+
+        for i ,ray in enumerate(self.segments):
+            closest_intersection = None
+            closest_obstacle = None
+            closest_distance = float('inf')
+
+            for obstacle in obstacle_list:
+                intersection_point = ray.intersect(obstacle)
+
+                if intersection_point:
+                    distance = (intersection_point - ray.start_point).length()
+                    if distance < closest_distance:
+                        closest_distance = distance
+                        closest_intersection = intersection_point
+                        closest_obstacle = obstacle
+
+            if closest_intersection:
+                intersections.append(closest_intersection)
+            else:
+                intersections.append(ray.end_point)
+
+        return intersections
+    
+    def update(self, new_pos, obstacles, display):
+        self.origin = new_pos
         mouse_pos, mouse_angle = 0, 0
         if self.mouse_follow:
             mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
             mouse_angle = math.atan2(mouse_pos.y - new_pos.y, mouse_pos.x - new_pos.x)
 
-        for i, ray in enumerate(self.rays):
-            angle_offset = -self.ray_angle / 2 + i * (self.ray_angle / (len(self.rays) - 1))
+        for i, ray in enumerate(self.segments):
+            angle_offset = -self.ray_angle / 2 + i * (self.ray_angle / (len(self.segments) - 1))
             radian = mouse_angle + math.radians(angle_offset)
 
             ray.start_point = new_pos
@@ -190,103 +218,46 @@ class Ray():
                 new_pos.y + self.ray_length * math.sin(radian)
             )
         
+        # Draw Light Rays
+        pygame.draw.polygon(display, 'yellow', self.handle_rays(obstacles))
+        
 class Observer():
     def __init__(self,x,y,width,height):
         self.rect = pygame.Rect(x,y,width,height)
         self.pos = pygame.Vector2(self.rect.x,self.rect.y)
         self.radius = 15
         self.direction = pygame.Vector2(0,0)
-        self.color = (0, 0, 0, 150) 
+        self.color = (0, 0, 0, 0) 
+
+        # Movement Properties
+        self.velocity = pygame.Vector2(0, 0)
+        self.acceleration = pygame.Vector2(0, 0)
+        self.acceleration_rate = 0.5
+        self.speed = 80
+        self.max_speed = 5.0
+        self.friction = 0.85
+        self.mass = 1.0
+
+        # Sprite Properties
+        self.player_sprite = SPRITES
+        self.player_sprite = [pygame.transform.scale(self.player_sprite[i], (40,40)) for i in range(3)]
+        self.walking_animation = self.player_sprite[1:3]
+        self.animation_cd = 200
+        self.last_update = 0
+        self.frame_index = 0
 
         # Ray Properties
-        self.ray_length = 400
-        self.ray_angle = 30
-        self.ray_num = 30
-        self.ray_color = (173, 216, 230, 255)
+        self.ray_properties = {
+            'length' : 200,
+            'angle'  : 60,
+            'number' : 20,
+            'color'  : (255,255,150,0)
+        }
         self.show_ray_lines = False
 
         # Create Rays
-        self.line_of_sight = Ray(self.pos, self.ray_length, self.ray_angle, self.ray_num, True)     
-        self.surrounding_light = Ray(self.pos, 50, 360, 30, True)  
-
-    def handle_rays(self, ray, show_lines=False, obstacles=None, light_surface=pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)):
-        intersection_groups = []    # Tracks intersected points and their obstacles
-        polygon_points = []         # List of points that will form the visibility polygon
-        polygon_points.append(ray[0].start_point)  # First polygon point is the ray's starting point
-
-        for i, line in enumerate(ray):
-            closest_point = None           # Tracks the nearest intersection point
-            closest_obstacle = None        # Tracks the obstacle associated with the nearest point
-            closest_distance = float('inf')  # Starts with infinity to ensure finding the closest point
-
-            obstacle_list = (
-                obstacles if isinstance(obstacles, list)
-                else [obstacles] if obstacles is not None
-                else []
-            )
-
-            for obstacle in obstacle_list:
-                point = line.intersect(obstacle)  
-
-                if point:
-                    distance = (point - line.start_point).length()
-
-                    if distance < closest_distance:
-                        closest_distance = distance
-                        closest_point = point
-                        closest_obstacle = obstacle
-
-            if closest_point:
-                polygon_points.append(closest_point)  
-                intersection_groups.append((i, closest_point, closest_obstacle))
-            else:
-                polygon_points.append(line.end_point)
-
-        # Step 8: Draw the visibility polygon if it has enough points
-        if len(polygon_points) > 2:  # At least 3 points are required for a valid polygon
-            self.draw_rays(polygon_points, show_lines, (255, 255, 100, 255) , light_surface)  # Draws the filled polygon (or outlines if specified)
-            self.draw_visible_edges(intersection_groups)  # Draws edges connecting intersection points
-            
-    def draw_rays(self, polygon_points, show_line=False, ray_color=(255, 255, 255, 255), light_surface=pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)):
-        if show_line or self.show_ray_lines:
-            for point in polygon_points:
-                pygame.draw.line(light_surface, ray_color, self.rect.center, point, 1)
-        else:
-            pygame.gfxdraw.filled_polygon(light_surface, polygon_points, ray_color)
-
-    def draw_visible_edges(self, intersection_groups):
-        # Group intersections by obstacle to draw edge lines
-        obstacle_intersections = {}
-        for ray_index, intersection_point, obstacle in intersection_groups:
-            if obstacle not in obstacle_intersections:
-                obstacle_intersections[obstacle] = []
-            obstacle_intersections[obstacle].append((ray_index, intersection_point))
-        
-        # Draw lines along obstacle edges (boundaries of visibility)
-        for obstacle, points in obstacle_intersections.items():
-            if len(points) >= 2:
-                points.sort(key = lambda x: x[0])
-            
-                for i in range(len(points) - 1):
-                    current_index, current_point = points[i]
-                    next_index, next_point = points[i + 1]
-
-                    if next_index - current_index == 1: # It means all rays are consecutive order
-                        pygame.draw.line(DISPLAY, 
-                            (255, 240, 200, 200),  # Bright illumination
-                            current_point, 
-                            next_point, 
-                            3
-                        )
-                        
-                        # Add a subtle glow around the edge
-                        pygame.gfxdraw.line(DISPLAY, 
-                                int(current_point.x), 
-                                int(current_point.y), 
-                                int(next_point.x), 
-                                int(next_point.y), 
-                                (255, 240, 200, 100)
-                            )
+        self.line_of_sight = Ray(self.pos, self.ray_properties['length'], self.ray_properties['angle'], self.ray_properties['number'], True)       
+        self.surrounding_light = Ray(self.pos, 30, 360, 30, True)  
                         
     def handle_collisions(self, lines=None):
         for line in lines:
@@ -296,6 +267,24 @@ class Observer():
                 collision_vector = collision_vector.normalize()
                 self.pos = collision_point + collision_vector * self.radius
 
+    def handle_sprite(self):
+        mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
+        angle = math.degrees(math.atan2(mouse_pos.y - self.pos.y, mouse_pos.x - self.pos.x))
+        angle_offset = -angle - 90
+        rotated_sprite = pygame.transform.rotate(self.walking_animation[self.frame_index], angle_offset)
+        sprite_rect = rotated_sprite.get_frect(center = (self.pos))
+
+        current_time = pygame.time.get_ticks()
+        if self.direction.x > 0 or self.direction.y > 0 or self.direction.x < 0 or self.direction.y < 0:
+            DISPLAY.blit(rotated_sprite, sprite_rect)
+            if current_time - self.last_update >= self.animation_cd:
+                self.frame_index += 1
+                self.frame_index = self.frame_index % len(self.walking_animation)
+                self.last_update = current_time
+        else:
+            self.frame_index = 0
+            DISPLAY.blit(pygame.transform.rotate(self.player_sprite[0], angle_offset), sprite_rect)
+            
     def move(self,dt):
         keys = pygame.key.get_pressed()
         self.direction.x = int(keys[pygame.K_d]) - int(keys[pygame.K_a])
@@ -303,17 +292,23 @@ class Observer():
         self.direction = self.direction.normalize() if self.direction else self.direction
 
         # Base Movement
-        self.pos += self.direction * dt * 300
+        self.acceleration = self.direction * (self.acceleration_rate / self.mass)
+        self.velocity += self.acceleration
+
+        if self.velocity.length() > self.max_speed:
+            self.velocity.scale_to_length(self.max_speed)
+
+        self.velocity *= self.friction
+
+        self.pos += self.velocity * self.speed * dt 
         self.rect.center = self.pos
     
     def update(self,dt,lines=None, light_surface=pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)):
         self.move(dt)
-        self.line_of_sight.update(self.pos)
-        self.surrounding_light.update(self.pos)
-        self.handle_rays(self.line_of_sight.rays, False, lines, light_surface)
-        self.handle_rays(self.surrounding_light.rays, False, lines, light_surface)
+        self.line_of_sight.update(self.pos, lines, light_surface)
+        self.surrounding_light.update(self.pos, lines, light_surface)
+        self.handle_sprite()
         self.handle_collisions(lines)
-
-        pygame.gfxdraw.filled_circle(DISPLAY, int(self.pos.x), int(self.pos.y), self.radius, self.color)
+        
 
 

@@ -5,19 +5,20 @@ from libraries import *
 # Game Class
 class Game():
     def __init__(self):
+        # Game Variables
         pygame.init()
         pygame.display.set_caption('Black Forest')
         self.display = DISPLAY
         self.clock = pygame.time.Clock()
-        self.initialized = False
         self.running = True  
         self.start_time = None  
-        self.elapsed_time = None  
-        self.segment = Segment(0, 0, 100, 100)  
-        self.player = Observer(100, 100, 15, 15)  
-        self.border_lines = []
-        self.tiles = TILES
+        self.elapsed_time = None 
 
+        # Class Instance
+        self.player = Observer(100, 100, 15, 15)  
+        
+        self.border_lines = self.create_screen_border()
+        self.tiles = TILES
         self.light_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         self.dark_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
@@ -32,12 +33,8 @@ class Game():
         
         keys = pygame.key.get_just_pressed()
         
-        if keys[pygame.K_r]:
+        if keys[pygame.K_f]:
             self.player.show_ray_lines = not self.player.show_ray_lines
-        elif keys[pygame.K_RIGHTBRACKET] and self.player.ray_length != 1000:
-            self.player.ray_length += 100
-        elif keys[pygame.K_LEFTBRACKET] and self.player.ray_length != 0:
-            self.player.ray_length -= 100
 
     def create_screen_border(self):
         border_lines = [
@@ -63,7 +60,7 @@ class Game():
 
         # Create Surface
         self.light_surface.fill((0,0,0,0))
-        self.dark_overlay.fill((0,0,0,255))
+        self.dark_overlay.fill((0,0,0,225))
 
         self.player.update(delta_time, self.border_lines, self.light_surface)
 
@@ -79,6 +76,7 @@ class Game():
             # Handle user input and game events
             self.handle_events()
 
+            
             self.render(delta_time)
 
             # Render the updated frame

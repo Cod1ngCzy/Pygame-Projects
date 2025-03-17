@@ -1,4 +1,4 @@
-import pygame, sys, math, json, csv
+import pygame, sys, math, json, csv, os
 from os.path import join
 from pygame import gfxdraw
 
@@ -32,6 +32,12 @@ with open(join('assets', 'tilemap.csv')) as file:
     TILE_MAP = list(csv.reader(file))
 
 TILES = []
+SPRITES = []
+sprites_dir = join('assets', 'sprites','player')
+for sprite_file in sorted(os.listdir(sprites_dir)):
+    if sprite_file.endswith('.png'):
+        sprite_img = pygame.image.load(join(sprites_dir, sprite_file)).convert_alpha()
+        SPRITES.append(sprite_img)
 
 TILES.extend(
     Tile('Grass0 - 0.png', x * TILE_SIZE, y * TILE_SIZE)

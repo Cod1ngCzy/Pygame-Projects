@@ -14,6 +14,9 @@ class Game():
         self.start_time = None  
         self.elapsed_time = None 
 
+        # Camera
+        self.camera_offset = pygame.Vector2()
+
         # Class Instance
         self.player = Observer(100, 100, 15, 15)  
         
@@ -46,10 +49,6 @@ class Game():
             Line(20, HEIGHT - 20, WIDTH - 20, HEIGHT - 20),  
             # Right border
             Line(WIDTH - 20, HEIGHT - 20, WIDTH - 20, 20),  
-            # Additional obstacle (vertical line)
-            Line(200, 100, 200, 400),
-            # Additional obstacle (horizontal line)
-            Line(200, 400, 0, 400)  
         ]
         return border_lines
     
@@ -76,7 +75,7 @@ class Game():
             # Handle user input and game events
             self.handle_events()
 
-            
+
             self.render(delta_time)
 
             # Render the updated frame

@@ -17,15 +17,30 @@ TILE_SIZE = 64
 # Calculate how many tiles fit into the screen (in terms of width and height)
 GRID_WIDTH, GRID_HEIGHT = WIDTH // TILE_SIZE, HEIGHT // TILE_SIZE
 
-class Tile():
-    def __init__(self, image, x,y):
-        self.image = pygame.image.load(join('assets', 'tiles', f'{image}')).convert_alpha()
-        self.rect = self.image.get_frect(center = (x,y))
-        self.image = pygame.transform.scale(self.image, (TILE_SIZE, TILE_SIZE))
-        self.pos = self.rect.center
+class Tile:
+    def __init__(self, image, x, y, size=None, tile_number=None):
+        if size is None:
+            size = TILE_SIZE
+            
+        # Load and scale the tile image
+        self.image = pygame.image.load(join('assets', 'tiles', 'grass', f'{image}')).convert_alpha()
+        self.image = pygame.transform.scale(self.image, (size, size))
+        
+        # Create a rect for the tile and center it at (x, y)
+        self.rect = self.image.get_frect(center=(x, y))
+        self.tile_number = tile_number
     
     def draw(self):
-        DISPLAY.blit(self.image, self.pos)
+        DISPLAY.blit(self.image, self.rect)
+
+# RESET TILE
+"""
+TILE_MAP = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+with open(join('assets', 'tilemap.csv'), 'w', newline='') as file:
+    writer = csv.writer(file)
+    for row in TILE_MAP:
+        writer.writerow(row)
+""" # If Tile Map Needs Ovveride
 
 # Load Tilemap
 with open(join('assets', 'tilemap.csv')) as file:
@@ -51,5 +66,6 @@ TILES.extend(
     for x, tile in enumerate(tiles)
     if int(tile) == 2
 )
+
 
 

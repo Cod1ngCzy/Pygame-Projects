@@ -18,13 +18,14 @@ TILE_SIZE = 64
 GRID_WIDTH, GRID_HEIGHT = WIDTH // TILE_SIZE, HEIGHT // TILE_SIZE
 
 class Tile:
-    def __init__(self, image, x, y, size=None, tile_number=None):
+    def __init__(self, image_file_path, x, y, size=None, tile_number=None, display=None):
         if size is None:
             size = TILE_SIZE
             
         # Load and scale the tile image
-        self.image = pygame.image.load(join('assets', 'tiles', 'grass', f'{image}')).convert_alpha()
+        self.image = pygame.image.load(image_file_path).convert_alpha()
         self.image = pygame.transform.scale(self.image, (size, size))
+        self.display = display
         
         # Create a rect for the tile and center it at (x, y)
         self.rect = self.image.get_frect(topleft=(x, y))
@@ -33,7 +34,11 @@ class Tile:
     def draw(self, pos=None):
         if pos is None:
             pos = self.rect
-        DISPLAY.blit(self.image, pos)
+        
+        if self.display  is None:
+            self.display  = DISPLAY
+            
+        self.display.blit(self.image, pos)
 
 def get_image(file_path, current_tile_num=0):
     file_names = [file for file in os.listdir(file_path)]
@@ -54,7 +59,7 @@ def get_image(file_path, current_tile_num=0):
 
             image = image_data.get(tile_num, image_data[0])
 
-            image_tiles.append(Tile(image, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE))
+            image_tiles.append(Tile(join(file_path, image), x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE))
     
     return image_tiles
 

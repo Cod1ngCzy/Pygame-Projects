@@ -37,26 +37,26 @@ class Tile:
 
 def get_image(file_path, current_tile_num=0):
     file_names = [file for file in os.listdir(file_path)]
-    image_data = []
     tile_num = current_tile_num
+    image_data = {}
+    image_tiles = []
 
     for image in file_names:
         tile_num += 1
-        image_data.append((image, tile_num))
-    
-    image_tiles = []
+        image_data[tile_num] = image
 
-    for y, row in enumerate(TILE_MAP):
-        for x, tile_num in enumerate(row):
-            if int(tile_num) == 0:
-                image_tiles.append(Tile('Grass0 - 0.png', x * TILE_SIZE, y * TILE_SIZE))
-            for image, image_time_num in image_data:
-                if int(tile_num) == int(image_time_num):
-                    image_tiles.append(Tile(image, x * TILE_SIZE,y * TILE_SIZE))
+    # Default Image Tile
+    image_data[0] = 'Grass0 - 0.png'
+
+    for y, tiles in enumerate(TILE_MAP):
+        for x, tile in enumerate(tiles):
+            tile_num = int(tile)
+
+            image = image_data.get(tile_num, image_data[0])
+
+            image_tiles.append(Tile(image, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE))
     
     return image_tiles
-
-
 
 
 # RESET TILE
@@ -83,4 +83,3 @@ for sprite_file in sorted(os.listdir(sprites_dir)):
         sprite_img = pygame.image.load(join(sprites_dir, sprite_file)).convert_alpha()
         SPRITES.append(sprite_img)
 
-print(TILES)

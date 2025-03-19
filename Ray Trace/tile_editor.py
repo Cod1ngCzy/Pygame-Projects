@@ -8,8 +8,8 @@ pygame.display.set_caption('Tile Editor')
 running = True
 clock = pygame.time.Clock()
 
-class Tilemap():
-    def __init__(self):
+class TileEditor():
+    def __init__(self, tile_size=None, ):
         global TILES
 
         self.tilemap = self.load_map()
@@ -93,7 +93,6 @@ class Tilemap():
 
             self.grid_init = True
 
-
     def handle_tiles(self, tile_pos, images):        
         add_tile, remove_tile = pygame.mouse.get_pressed()[0], pygame.mouse.get_pressed()[1]
         mouse_pos = pygame.mouse.get_pos()
@@ -130,7 +129,7 @@ class Tilemap():
 
         self.handle_tiles([mdx,mdy], self.grass_images)
        
-tile = Tilemap()
+tile = TileEditor()
 
 while running:
     dt = clock.tick(60) / 1000

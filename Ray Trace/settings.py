@@ -40,29 +40,55 @@ class Tile:
             
         self.display.blit(self.image, pos)
 
-def get_image(file_path, current_tile_num=0):
-    file_names = [file for file in os.listdir(file_path)]
-    tile_num = current_tile_num
-    image_data = {}
-    image_tiles = []
+class TileMap:
+    def __init__(self, file_path_csv=None, file_path=None):
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Passed Argument Assumes a STRUCTURED folder. \nExample: \n📂 assets\n└── 📂 tiles")
+        
+        if not os.path.exists(file_path_csv):
+            raise FileNotFoundError(f"{file_path_csv} is not found. \n Passed Argument Assumes an ASSETS folder. \nExample: \n.\ 📂 assets ")
+        
+        self.tile_map = self.load_from_csv(file_path_csv)
+        self.file_path = file_path
+        self.folder_directories = [join(file_path, folder_dir) for folder_dir in sorted(os.listdir(file_path)) if os.path.isdir(join(file_path, folder_dir))]
+        self.image_data = {} 
+        self.image = {}
+        for directory in self.folder_directories:
+            folder_name = os.path.basename(directory)
+            self.image[folder_name] = list(map(lambda image: join(directory, image), os.listdir(directory)))
+        
+        tile_num = 0
+        for folder in self.folder_directories:
+            folder = os.path.basename(folder)
+            for image in self.image[folder]:  # folder becomes the key
+                tile_num += 1
+                self.image_data[tile_num] = image
+        
+        self.tiles = self.load_image_object()
 
-    for image in file_names:
-        tile_num += 1
-        image_data[tile_num] = image
+    def load_from_csv(self, file_path=str):    
+        map = []
+        with open(file_path) as file:
+            tile = csv.reader(file, delimiter=',')
+            for row in tile:
+                map.append(list(row))
+        return map
 
-    # Default Image Tile
-    image_data[0] = 'Grass0 - 0.png'
+    def load_image_object(self):
+        image_objects = []
+        for y, tiles in enumerate(self.tile_map):
+            for x, tile in enumerate(tiles):
+                tile_num = int(tile)
 
-    for y, tiles in enumerate(TILE_MAP):
-        for x, tile in enumerate(tiles):
-            tile_num = int(tile)
+                image = self.image_data.get(tile_num)
 
-            image = image_data.get(tile_num, image_data[0])
+                image_objects.append(Tile(image, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE))
+        
+        return image_objects
 
-            image_tiles.append(Tile(join(file_path, image), x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE))
-    
-    return image_tiles
-
+    def load_map(self):
+        for tile in self.tiles:
+            tile.draw()
 
 # RESET TILE
 """
@@ -77,10 +103,10 @@ with open(join('assets', 'tilemap.csv'), 'w', newline='') as file:
 with open(join('assets', 'tilemap.csv')) as file:
     TILE_MAP = list(csv.reader(file))
 
-
 SPRITES = []
-FILE_PATH = 'assets/tiles/grass'
-TILES = get_image(FILE_PATH)
+FILE_PATH_T0_CSV = 'assets/tilemap.csv'
+FILE_PATH = 'assets/tiles'
+TILES = TileMap(FILE_PATH_T0_CSV, FILE_PATH)
 
 sprites_dir = join('assets', 'sprites','player')
 for sprite_file in sorted(os.listdir(sprites_dir)):

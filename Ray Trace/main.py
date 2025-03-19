@@ -54,8 +54,7 @@ class Game():
     
     def render(self, delta_time):
         # Render Tile Images
-        for tile in self.tiles:
-            tile.draw()
+        self.tiles.load_map()
 
         # Create Surface
         self.light_surface.fill((0,0,0,0))
@@ -74,7 +73,6 @@ class Game():
 
             # Handle user input and game events
             self.handle_events()
-
 
             self.render(delta_time)
 

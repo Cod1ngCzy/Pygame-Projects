@@ -12,19 +12,17 @@ class TileEditor():
     def __init__(self, tile_size=int, tile_map=str, tile_file_path=(join('assets','tiles'))):
         # Class Variables (*Required)
         self.tile_map = self.load_from_csv(tile_map)
-        self.tile_rows, self.tile_cols = (len(self.tile_map) - 1), (len(self.tile_map[0]) - 1)
         self.tile_size = tile_size
-        self.rows, self.cols = GRID_WIDTH, GRID_HEIGHT
         self.tile_screen = pygame.Surface((300, HEIGHT), pygame.SRCALPHA)
 
         # Load Images from folder
         if not os.path.exists(tile_file_path):
             raise FileNotFoundError(f"Passed Argument Assumes a STRUCTURED folder. \nExample: \n📂 assets\n└── 📂 tiles")
         
-        self.images_folder = [join(tile_file_path, folder_dir) for folder_dir in sorted(os.listdir(tile_file_path)) if os.path.isdir(join(tile_file_path, folder_dir))]
+        self.folder_directories = [join(tile_file_path, folder_dir) for folder_dir in sorted(os.listdir(tile_file_path)) if os.path.isdir(join(tile_file_path, folder_dir))]
         self.images = {} # Variable containing all images object
         # Load Images into a dictionary
-        for file_path in self.images_folder:
+        for file_path in self.folder_directories:
             folder_name = os.path.basename(file_path)
             self.images[folder_name] = list(filter(None, map( lambda file: self.create_image_object(join(file_path, file)), os.listdir(file_path))))
         
@@ -33,17 +31,23 @@ class TileEditor():
         self.current_category = list(self.images.keys())[self.catergory_index]
         self.set_image_tilenum()
 
-        self.tiles = []
+        self.image_lookup = {
+            image.tile_number: image 
+            for category in self.images.values()
+            for image in category
+        }
 
         # Edit Tile Properties
         self.selected_tile = None
-        self.updated_tiles = []
-        self.grid_init = False
+        self.updated_tiles = set()
         self.redraw = False
-        self.load_tile = False
+
+        # Draw Grid
+        for y in range(len(self.tile_map)):
+            for x in range(len(self.tile_map[0])):
+                pygame.draw.rect(display, 'grey', (x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size), 1)
 
         self.draw_image_object()
-
 
     def create_image_object(self, image_file_path, tile_size=None):
         try:
@@ -51,22 +55,38 @@ class TileEditor():
         except Exception as e:
             print(f"Error loading image '{image_file_path}': {e}")
     
-    def set_image_tilenum(self, prevous_list_length=0):
-        if self.catergory_index >= len(self.images):
-            self.catergory_index = 0
-            return
+    def set_image_tilenum(self):
+        tile_num = 0
         
-        tile_num = prevous_list_length
-        for i, image in enumerate(self.images[self.current_category]):
-            tile_num += 1
-            image.tile_number = tile_num
-        self.catergory_index += 1
+        while self.catergory_index < len(self.images):
+            for image in self.images[self.current_category]:
+                tile_num += 1
+                image.tile_number = tile_num
+            
+            # Move to the next category
+            self.catergory_index += 1
+            if self.catergory_index >= len(self.images):
+                self.catergory_index = 0
+                break
+            
+            self.current_category = list(self.images.keys())[self.catergory_index]
         
-        return self.set_image_tilenum(tile_num + prevous_list_length)
+    def load_from_csv(self, file_path=str):    
+        map = []
+        with open(file_path) as file:
+            tile = csv.reader(file, delimiter=',')
+            for row in tile:
+                map.append(list(row))
+        return map
+    
+    def save_map(self):
+        with open(join('assets', 'tilemap.csv'), 'w', newline='') as file:
+            writer = csv.writer(file)
+            for row in self.tile_map:
+                writer.writerow(row)
 
     def draw_image_object(self):
         pygame.draw.rect(DISPLAY, 'black', (WIDTH, 0, 300, HEIGHT))
-
         self.current_category = list(self.images.keys())[self.catergory_index]
 
         # Function Properties
@@ -85,57 +105,32 @@ class TileEditor():
 
             image.rect.topleft= (x,y)
 
+            
             image.draw()
-        
-    def load_from_csv(self, file_path=str):    
-        map = []
-        with open(file_path) as file:
-            tile = csv.reader(file, delimiter=',')
-            for row in tile:
-                map.append(list(row))
-        return map
-    
-    def save_map(self):
-        with open(join('assets', 'tilemap.csv'), 'w', newline='') as file:
-            writer = csv.writer(file)
-            for row in self.tile_map:
-                writer.writerow(row)
 
     def show_updated_tiles(self):
-        if self.redraw:
-            for x,y, num in self.updated_tiles:
-                pygame.draw.rect(DISPLAY, 'blue', (x * TILE_SIZE,y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-            self.redraw = False
+        if not self.updated_tiles:
+            return
+        
+        for tile in self.updated_tiles:
+            x, y, tile_num = tile
+            # Clear Tile Area
+            pygame.draw.rect(DISPLAY, 'black', (x * self.tile_size, y * self.tile_size,self.tile_size, self.tile_size))
+
+            if tile_num > 0:
+                image = self.image_lookup.get(tile_num)
+                image.draw((x * TILE_SIZE, y * TILE_SIZE))
             
-        if self.load_tile:
-            for x,y,num in self.updated_tiles:
-                pygame.draw.rect(DISPLAY, 'black', (x * TILE_SIZE,y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
-                for image in self.images[self.current_category]:
-                    if image.tile_number == num:
-                        image.draw((x * TILE_SIZE, y * TILE_SIZE))
-            self.grid_init = False
-            self.show_grid(self.grass_images)
-            self.updated_tiles.clear()
-            self.load_tile = False
-           
-    def show_grid(self, images):
-        # Grid Intialized Only Once
-        if not self.grid_init:
-            for cols in range(self.cols):
-                for rows in range(self.rows):
-                    pygame.draw.rect(display, 'grey', (rows * self.tile_size, cols * self.tile_size, self.tile_size, self.tile_size), 1)
+            pygame.draw.rect(DISPLAY, 'grey', (x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size), 1)
+        
+        self.updated_tiles = set()
 
-            for image in images:
-                image.draw()
-
-            self.grid_init = True
-
-    def handle_tiles(self, tile_pos, images):        
+    def handle_tiles(self, tile_pos):        
         add_tile, remove_tile = pygame.mouse.get_pressed()[0], pygame.mouse.get_pressed()[1]
         mouse_pos = pygame.mouse.get_pos()
 
         # First handle tile selection from palette (outside grid)
-        for image in images:
+        for image in self.images[self.current_category]:
             if image.rect.collidepoint(mouse_pos) and add_tile:
                 self.selected_tile = image.tile_number
                 return  # Return early to avoid placing a tile in the same click
@@ -147,24 +142,22 @@ class TileEditor():
             # Check if within bounds of the tilemap
             if 0 <= x < len(self.tile_map[0]) and 0 <= y < len(self.tile_map):
                 if add_tile and self.selected_tile is not None:
-                    if self.tile_map[y][x] != self.selected_tile:
-                        self.updated_tiles.append((x,y,self.selected_tile))
-                        self.tile_map[y][x] = self.selected_tile
-                        self.redraw = True
+                    self.updated_tiles.add((x,y,self.selected_tile))
+                    self.tile_map[y][x] = self.selected_tile
+                    self.redraw = True
 
-        self.show_grid(images)
         self.show_updated_tiles()
         
-
     # Main Class Loop
-    def edit_tiles(self):
+    def run(self):
         mouse_pos = pygame.Vector2(
             min(max(pygame.mouse.get_pos()[0] // self.tile_size, 0), len(self.tile_map[0]) - 1),
             min(max(pygame.mouse.get_pos()[1] // self.tile_size, 0), len(self.tile_map) - 1)
         )
         mdx, mdy = round(mouse_pos.x), round(mouse_pos.y)
 
-        self.handle_tiles([mdx,mdy], self.images[self.current_category])
+        self.handle_tiles([mdx,mdy])
+    
        
 tile = TileEditor(TILE_SIZE, join('assets', 'tilemap.csv'))
 
@@ -190,8 +183,8 @@ while running:
                 if tile.catergory_index >= 4:
                     tile.catergory_index = 0
                 tile.draw_image_object()
-
-    tile.edit_tiles()
+ 
+    tile.run()
 
     pygame.display.update()
 pygame.quit()

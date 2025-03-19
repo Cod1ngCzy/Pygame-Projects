@@ -9,16 +9,19 @@ running = True
 clock = pygame.time.Clock()
 
 class TileEditor():
-    def __init__(self, tile_size=None, ):
-        global TILES
-
-        self.tilemap = self.load_map()
-        self.tilesize = TILE_SIZE
-        self.rows = GRID_WIDTH 
-        self.cols = GRID_HEIGHT
+    def __init__(self, tile_size=int, tile_map=str, tile_file_path=(join('assets','tiles'))):
+        # Class Properties (*Required)
+        self.tile_map = self.load_from_csv(tile_map)
+        self.tile_rows, self.tile_cols = (len(self.tile_map) - 1), (len(self.tile_map[0]) - 1)
+        self.tile_size = tile_size
+        self.rows, self.cols = GRID_WIDTH, GRID_HEIGHT
         self.tiles = []
 
         # Load Images from folder
+        if not os.path.exists(tile_file_path):
+            raise FileNotFoundError(f"Passed Argument Assumes a STRUCTURED folder. \nExample: \n📂 assets\n└── 📂 tiles")
+        self.images_folder = [folder_dir for folder_dir in os.listdir(tile_file_path) if os.path.isdir(join(tile_file_path, folder_dir))]
+
         self.grass_images = self.get_images('assets/tiles/grass')
 
         # Edit Tile Properties
@@ -47,9 +50,9 @@ class TileEditor():
 
         return images
     
-    def load_map(self):
+    def load_from_csv(self, file_path=str):    
         map = []
-        with open(join('assets', 'tilemap.csv')) as file:
+        with open(file_path) as file:
             tile = csv.reader(file, delimiter=',')
             for row in tile:
                 map.append(list(row))
@@ -58,7 +61,7 @@ class TileEditor():
     def save_map(self):
         with open(join('assets', 'tilemap.csv'), 'w', newline='') as file:
             writer = csv.writer(file)
-            for row in self.tilemap:
+            for row in self.tile_map:
                 writer.writerow(row)
     
     def load_tiles_image(self):
@@ -86,7 +89,7 @@ class TileEditor():
         if not self.grid_init:
             for cols in range(self.cols):
                 for rows in range(self.rows):
-                    pygame.draw.rect(display, 'grey', (rows * self.tilesize, cols * self.tilesize, self.tilesize, self.tilesize), 1)
+                    pygame.draw.rect(display, 'grey', (rows * self.tile_size, cols * self.tile_size, self.tile_size, self.tile_size), 1)
 
             for image in images:
                 image.draw()
@@ -108,11 +111,11 @@ class TileEditor():
             x, y = tile_pos
             
             # Check if within bounds of the tilemap
-            if 0 <= x < len(self.tilemap[0]) and 0 <= y < len(self.tilemap):
+            if 0 <= x < len(self.tile_map[0]) and 0 <= y < len(self.tile_map):
                 if add_tile and self.selected_tile is not None:
-                    if self.tilemap[y][x] != self.selected_tile:
+                    if self.tile_map[y][x] != self.selected_tile:
                         self.updated_tiles.append((x,y,self.selected_tile))
-                        self.tilemap[y][x] = self.selected_tile
+                        self.tile_map[y][x] = self.selected_tile
                         self.redraw = True
 
         self.show_grid(images)
@@ -122,14 +125,14 @@ class TileEditor():
     # Main Class Loop
     def edit_tiles(self):
         mouse_pos = pygame.Vector2(
-            min(max(pygame.mouse.get_pos()[0] // self.tilesize, 0), len(self.tilemap[0]) - 1),
-            min(max(pygame.mouse.get_pos()[1] // self.tilesize, 0), len(self.tilemap) - 1)
+            min(max(pygame.mouse.get_pos()[0] // self.tile_size, 0), len(self.tile_map[0]) - 1),
+            min(max(pygame.mouse.get_pos()[1] // self.tile_size, 0), len(self.tile_map) - 1)
         )
         mdx, mdy = round(mouse_pos.x), round(mouse_pos.y)
 
         self.handle_tiles([mdx,mdy], self.grass_images)
        
-tile = TileEditor()
+tile = TileEditor(TILE_SIZE, join('assets', 'tilemap.csv'))
 
 while running:
     dt = clock.tick(60) / 1000

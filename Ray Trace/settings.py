@@ -27,11 +27,37 @@ class Tile:
         self.image = pygame.transform.scale(self.image, (size, size))
         
         # Create a rect for the tile and center it at (x, y)
-        self.rect = self.image.get_frect(center=(x, y))
+        self.rect = self.image.get_frect(topleft=(x, y))
         self.tile_number = tile_number
     
-    def draw(self):
-        DISPLAY.blit(self.image, self.rect)
+    def draw(self, pos=None):
+        if pos is None:
+            pos = self.rect
+        DISPLAY.blit(self.image, pos)
+
+def get_image(file_path, current_tile_num=0):
+    file_names = [file for file in os.listdir(file_path)]
+    image_data = []
+    tile_num = current_tile_num
+
+    for image in file_names:
+        tile_num += 1
+        image_data.append((image, tile_num))
+    
+    image_tiles = []
+
+    for y, row in enumerate(TILE_MAP):
+        for x, tile_num in enumerate(row):
+            if int(tile_num) == 0:
+                image_tiles.append(Tile('Grass0 - 0.png', x * TILE_SIZE, y * TILE_SIZE))
+            for image, image_time_num in image_data:
+                if int(tile_num) == int(image_time_num):
+                    image_tiles.append(Tile(image, x * TILE_SIZE,y * TILE_SIZE))
+    
+    return image_tiles
+
+
+
 
 # RESET TILE
 """
@@ -46,26 +72,15 @@ with open(join('assets', 'tilemap.csv'), 'w', newline='') as file:
 with open(join('assets', 'tilemap.csv')) as file:
     TILE_MAP = list(csv.reader(file))
 
-TILES = []
+
 SPRITES = []
+FILE_PATH = 'assets/tiles/grass'
+TILES = get_image(FILE_PATH)
+
 sprites_dir = join('assets', 'sprites','player')
 for sprite_file in sorted(os.listdir(sprites_dir)):
     if sprite_file.endswith('.png'):
         sprite_img = pygame.image.load(join(sprites_dir, sprite_file)).convert_alpha()
         SPRITES.append(sprite_img)
 
-TILES.extend(
-    Tile('Grass0 - 0.png', x * TILE_SIZE, y * TILE_SIZE)
-    for y, tiles in enumerate(TILE_MAP)
-    for x, tile in enumerate(tiles)
-)
-
-TILES.extend(
-    Tile('Tree - 0.png', x * TILE_SIZE, y * TILE_SIZE)
-    for y, tiles in enumerate(TILE_MAP)
-    for x, tile in enumerate(tiles)
-    if int(tile) == 2
-)
-
-
-
+print(TILES)

@@ -24,11 +24,10 @@ class Tilemap():
         # Edit Tile Properties
         self.selected_tile = None
         self.updated_tiles = []
+        self.grid_init = False
+        self.redraw = False
+        self.load_tile = False
 
-    def handle_tiles(self, tile_list):
-        
-        pass
-    
     def get_images(self, file_path, current_tile_num=0):
         file_names = [file for file in os.listdir(file_path)]
         images = []
@@ -40,7 +39,7 @@ class Tilemap():
         row_gap = 75
         for i, image in enumerate(file_names):
             tile_num += 1
-            images.append(Tile(image, WIDTH + (row_gap * col) + 50, row_gap * row + 50, 60, tile_num))
+            images.append(Tile(image, WIDTH + (row_gap * col) + 50, row_gap * row + 20, 60, tile_num))
             col += 1
             if col == 3:
                 row += 1
@@ -63,44 +62,64 @@ class Tilemap():
                 writer.writerow(row)
     
     def load_tiles_image(self):
-        self.tiles.extend(
-            Tile('Grass0 - 0.png', x * self.tilesize, y * self.tilesize)
-            for y, tiles in enumerate(self.tilemap)
-            for x, tile in enumerate(tiles)
-        )
+        pass
 
-        self.tiles.extend(
-            Tile('Road0.png', x * self.tilesize, y * self.tilesize)
-            for y, tiles in enumerate(self.tilemap)
-            for x, tile in enumerate(tiles)
-            if int(tile) == 1
-        )
+    def show_updated_tiles(self):
+        if self.redraw:
+            for x,y, num in self.updated_tiles:
+                pygame.draw.rect(DISPLAY, 'blue', (x * TILE_SIZE,y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+            self.redraw = False
+            
+        if self.load_tile:
+            for x,y,num in self.updated_tiles:
+                pygame.draw.rect(DISPLAY, 'black', (x * TILE_SIZE,y * TILE_SIZE, TILE_SIZE, TILE_SIZE))
+                for image in self.grass_images:
+                    if image.tile_number == num:
+                        image.draw((x * TILE_SIZE, y * TILE_SIZE))
+            self.grid_init = False
+            self.show_grid(self.grass_images)
+            self.updated_tiles.clear()
+            self.load_tile = False
+           
+    def show_grid(self, images):
+        # Grid Intialized Only Once
+        if not self.grid_init:
+            for cols in range(self.cols):
+                for rows in range(self.rows):
+                    pygame.draw.rect(display, 'grey', (rows * self.tilesize, cols * self.tilesize, self.tilesize, self.tilesize), 1)
 
-        for tile in self.tiles:
-            tile.draw()
+            for image in images:
+                image.draw()
 
-    def show_grid(self, tile_pos, images):
-        for cols in range(self.cols):
-            for rows in range(self.rows):
-                pygame.draw.rect(display, 'grey', (rows * self.tilesize, cols * self.tilesize, self.tilesize, self.tilesize), 1)
-        
+            self.grid_init = True
+
+
+    def handle_tiles(self, tile_pos, images):        
         add_tile, remove_tile = pygame.mouse.get_pressed()[0], pygame.mouse.get_pressed()[1]
+        mouse_pos = pygame.mouse.get_pos()
 
-        # Pick Tile 
+        # First handle tile selection from palette (outside grid)
         for image in images:
-            image.draw()
-            if image.rect.collidepoint(pygame.mouse.get_pos()) and add_tile:
-                    self.selected_tile = image.tile_number
+            if image.rect.collidepoint(mouse_pos) and add_tile:
+                self.selected_tile = image.tile_number
+                return  # Return early to avoid placing a tile in the same click
         
-                # Unpack only if within bounds
-        if tile_pos[0] < len(self.tilemap) and tile_pos[1] < len(self.tilemap[0]):
+        # Then handle tile placement (inside grid)
+        if tile_pos is not None:  # Make sure we have valid coordinates
             x, y = tile_pos
-            if add_tile and self.selected_tile:
-                self.tilemap[y][x] = self.selected_tile
-                self.updated_tiles.append((y, x))
+            
+            # Check if within bounds of the tilemap
+            if 0 <= x < len(self.tilemap[0]) and 0 <= y < len(self.tilemap):
+                if add_tile and self.selected_tile is not None:
+                    if self.tilemap[y][x] != self.selected_tile:
+                        self.updated_tiles.append((x,y,self.selected_tile))
+                        self.tilemap[y][x] = self.selected_tile
+                        self.redraw = True
+
+        self.show_grid(images)
+        self.show_updated_tiles()
         
-        print(self.updated_tiles)
-       
+
     # Main Class Loop
     def edit_tiles(self):
         mouse_pos = pygame.Vector2(
@@ -109,9 +128,8 @@ class Tilemap():
         )
         mdx, mdy = round(mouse_pos.x), round(mouse_pos.y)
 
-        self.show_grid([mdx,mdy], self.grass_images)
-
-        
+        self.handle_tiles([mdx,mdy], self.grass_images)
+       
 tile = Tilemap()
 
 while running:
@@ -124,6 +142,8 @@ while running:
             if event.key == pygame.K_s:
                 tile.save_map()
                 print('Tilemap Saved')
+            if event.key == pygame.K_l:
+                tile.load_tile = True
 
     tile.edit_tiles()
 

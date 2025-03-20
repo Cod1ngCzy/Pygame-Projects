@@ -30,15 +30,16 @@ class Tile:
         # Create a rect for the tile and center it at (x, y)
         self.rect = self.image.get_frect(topleft=(x, y))
         self.tile_number = tile_number
+        self.image_name = os.path.basename(image_file_path)
     
-    def draw(self, pos=None):
+    def draw(self, pos=None, display=None):
         if pos is None:
             pos = self.rect
         
-        if self.display  is None:
-            self.display  = DISPLAY
-            
-        self.display.blit(self.image, pos)
+        if display == None:
+            display = DISPLAY
+
+        display.blit(self.image, pos)
 
 class TileMap:
     def __init__(self, file_path_csv=None, file_path=None):

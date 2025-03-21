@@ -8,20 +8,129 @@ pygame.display.set_caption('Tile Editor')
 running = True
 clock = pygame.time.Clock()
 
+class TileHandler():
+    def __init__(self):
+        self.file_path = ''
+        self.folder_directories = ()
+        self.images = {}  # Dictionary of image filenames by category
+        self.image_objects = {}  # Dictionary of Tile objects by category
+        self.tile_lookup = {}  # For looking up tiles by their number
+
+        self.check_file_path()
+        self.handle_images()
+        self.process_images()
+
+        print("Loaded image categories:", list(self.images.keys()))
+
+    def check_file_path(self):
+        required_folder = 'assets/tiles'
+
+        if not os.path.exists('assets'):
+            os.makedirs(required_folder)
+            raise FileNotFoundError(f"Directories not found. Tile Editor requires a STRUCTURED folder. \nExample: \n📂 assets\n└── 📂 tiles\nCreating required folders...")
+        
+        self.file_path = required_folder
+        return True
+    
+    def handle_images(self):
+        folder_directories = [folder_name for folder_name in os.listdir(self.file_path) 
+                             if os.path.isdir(os.path.join(self.file_path, folder_name))]
+        
+        # Return if no folders are found
+        if not folder_directories:
+            print("No tile folders found in", self.file_path)
+            return 
+        
+        self.folder_directories = folder_directories
+
+        images = {}
+        for folder_name in folder_directories:
+            folder_path = os.path.join(self.file_path, folder_name)
+            images[folder_name] = [image for image in os.listdir(folder_path)]
+
+        self.images = images
+        return True
+    
+    def process_images(self):
+        """Convert image filenames to Tile objects and assign tile numbers"""
+        if not self.images:
+            return
+            
+        # Create Tile objects for each image file
+        for category, image_files in self.images.items():
+            category_path = os.path.join(self.file_path, category)
+            self.image_objects[category] = []
+            
+            for image_file in image_files:
+                image_path = os.path.join(category_path, image_file)
+                tile_obj = self.create_image_object(image_path)
+                if tile_obj:
+                    self.image_objects[category].append(tile_obj)
+        
+        # Assign tile numbers to all images
+        self.set_image_tilenum(self.image_objects)
+            
+    def create_image_object(self, image_file_path, tile_size=None):
+        """Uses Tile class as basis for creating an object."""
+        try:
+            return Tile(image_file_path, 0, 0, tile_size)
+        except Exception as e:
+            print(f"Error loading image '{image_file_path}': {e}")
+            return None
+    
+    def set_image_tilenum(self, image_objects):
+        """Assigns unique tile numbers to all tile objects"""
+        tile_num = 0
+        self.tile_lookup = {}
+        
+        for category_tiles in image_objects.values():
+            for tile in category_tiles:
+                tile_num += 1
+                tile.tile_number = tile_num
+                self.tile_lookup[tile_num] = tile
+        
+        print(f"Assigned numbers to {tile_num} tiles")
+        
+    def get_tile_by_number(self, number):
+        """Retrieve a tile by its assigned number"""
+        return self.tile_lookup.get(number)
+
+image = TileHandler().process_image()
+
+class PalleteGrid():
+    def __init__(self):
+        # Reference Display
+        self.origin_display = pygame.Surface((0,0))
+
+        self.pallete_width, self.pallete_height = 300, 300
+        self.pallete_surface = pygame.Surface((self.pallete_width,self.pallete_height))
+        self.pallete_images = {}
+        self.pallete_image_size = None
+        self.pallete_category, self.pallete_index = (), len(self.pallete_images.keys())[0]
+
+    def handle_category(self, pallete_images, pallete_image_size):
+        # Grabs and Sets category on images
+        pass
+
+    
+    def run_pallete(self):
+        pass
+        
+
 class TileEditor():
     def __init__(self, tile_size: int, tile_map: str, tile_file_path=join('assets','tiles')):
-        # Base Checks
+        # Base Checks (If paths doesn't exists tile editor will not run)
         if not os.path.exists(tile_file_path):
             raise FileNotFoundError(f"Passed Argument Assumes a STRUCTURED folder. \nExample: \n📂 assets\n└── 📂 tiles")
         elif not os.path.exists(tile_file_path):
             raise FileNotFoundError(f"Passed Argument Assumes a STRUCTURED folder. \nExample: \n📂 assets\n└── tilemap.csv")
         
         self.tile_map = self.load_from_csv(tile_map) # Load CSV map to variable
-        self.tile_size = tile_size
+        self.tile_size = tile_size # Load Tile Size
         
-        self.folder_directories = [join(tile_file_path, folder_dir) for folder_dir in sorted(os.listdir(tile_file_path)) if os.path.isdir(join(tile_file_path, folder_dir))]
+        self.folder_directories = [join(tile_file_path, folder_dir) for folder_dir in sorted(os.listdir(tile_file_path)) if os.path.isdir(join(tile_file_path, folder_dir))] # Check all folders and load them into a variable
         self.images = {} # Variable containing all images object
-        # Load Images into a dictionary
+        # Load Images into self.images
         for file_path in self.folder_directories:
             folder_name = os.path.basename(file_path)
             self.images[folder_name] = list(filter(None, map( lambda file: self.create_image_object(join(file_path, file)), os.listdir(file_path))))
@@ -31,9 +140,7 @@ class TileEditor():
         self.current_category = list(self.images.keys())[self.catergory_index]
 
         # Pallete Grid Variables
-        pallete_pos_offset = 300
-        pallete_width, pallete_height = (pallete_pos_offset, HEIGHT / 1.5)
-        self.pallete_surface = pygame.Surface((pallete_width, pallete_height))
+        self.pallete_surface = pygame.Surface((300, HEIGHT / 1.5))
         self.scroll_offset = 0
         self.max_scroll = max(0, len(self.images[self.current_category]) // 3 * 75 - self.pallete_surface.get_height())
 
@@ -43,6 +150,7 @@ class TileEditor():
 
         self.load_tiles_to_grid() # Load Current Tilemap
         self.draw_pallete_grid() # Load Tiles to Pallete Grid (Pallete Grid is a selection of images/tiles)
+    
 
     def create_image_object(self, image_file_path, tile_size=None):
         """Uses Tile class at it's basis for creating an object."""
@@ -91,7 +199,7 @@ class TileEditor():
                 pygame.draw.rect(display, 'grey', (x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size), 1)
 
     def draw_pallete_grid(self):
-        self.pallete_surface.fill((0, 0, 0))
+        pygame.draw.rect(self.pallete_surface, (105,105,105), (0, 0, self.pallete_surface.get_width(),self.pallete_surface.get_height() ))
         
         self.current_category = list(self.images.keys())[self.catergory_index]
         row_gap = 75
@@ -219,7 +327,6 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-            
 
     tile.run()
 

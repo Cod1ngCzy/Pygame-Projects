@@ -1,14 +1,31 @@
 from settings import *
 
-pygame.init()
-offset = 300
-display = pygame.display.set_mode((WIDTH + offset,HEIGHT))
-pygame.display.set_caption('Tile Editor')
+class Tile:
+    def __init__(self, image_file_path, x, y, size=None, tile_number=None, display=None):
+        if size is None:
+            size = TILE_SIZE
+            
+        # Load and scale the tile image
+        self.image = pygame.image.load(image_file_path).convert_alpha()
+        self.image = pygame.transform.scale(self.image, (size, size))
+        self.display = display
+        
+        # Create a rect for the tile and center it at (x, y)
+        self.rect = self.image.get_frect(topleft=(x, y))
+        self.tile_number = tile_number
+        self.is_collision = False
+        self.image_name = os.path.basename(image_file_path)
+    
+    def draw(self, pos=None, display=None):
+        if pos is None:
+            pos = self.rect
+        
+        if display == None:
+            display = DISPLAY
 
-running = True
-clock = pygame.time.Clock()
+        display.blit(self.image, pos)
 
-class TileHandler():
+class TileImageManager():
     def __init__(self):
         # File and Folder Variables
         self.file_path = 'assets/tiles'
@@ -20,6 +37,7 @@ class TileHandler():
         # Initialize
         self.handle_file_path()
         self.handle_images()
+
 
     def handle_file_path(self):
         if not os.path.exists('assets'):
@@ -89,63 +107,77 @@ class TileMapManager():
             for row in self.tile_map:
                 writer.writerow(row)
         return True
+
+class TileEditor:
+    def __init__(self):
+        # Initialize Pygame
+        pygame.init()
+        self.ORIGIN_WIDTH, self.ORIGIN_HEIGHT = 1324, 768
+        self.ORIGIN_DISPLAY = pygame.display.set_mode((self.ORIGIN_WIDTH, self.ORIGIN_HEIGHT))
+        pygame.display.set_caption('2D Tile Editor')
+
+        # State Variables
+        self.clock = pygame.time.Clock()
+        self.running = True
+
+        # Initialize resources
+        self.init_resources()
+
+    def init_resources(self):
+        # Tile Editor Variables
+        self.tile_size = TILE_SIZE
+        self.tile_handler = TileImageManager()
+        self.tile_manager = TileMapManager(join('assets', 'tilemap.csv'))
         
-class TileEditor():
-    def __init__(self, tile_size: int, tile_map: str, tile_file_path=join('assets','tiles')):
-        # Create a single TileHandler instance and store it
-        self.tile_handler = TileHandler()
-        self.tile_manager = TileMapManager(tile_map)
-        
-        # Reference the data from that single instance
+        # Reference the data from TileHandler and TileMapManager
         self.images = self.tile_handler.image_objects
         self.image_lookup = self.tile_handler.image_lookup
         self.tile_map = self.tile_manager.tile_map
-        self.tile_size = tile_size # Load Tile Size
 
-        self.catergory_index = 0
-        self.current_category = list(self.images.keys())[self.catergory_index]
-
-        # Pallete Grid Variables
-        self.pallete_surface = pygame.Surface((300, HEIGHT / 1.5))
-        self.scroll_offset = 0
-        self.max_scroll = max(0, len(self.images[self.current_category]) // 3 * 75 - self.pallete_surface.get_height())
-
+        # Editor State
+        self.category_index = 0
+        self.current_category = list(self.images.keys())[self.category_index]
         self.selected_tile = None
         self.updated_tiles = set()
         self.redraw = False
 
-        self.load_tiles_to_grid() # Load Current Tilemap
-        self.draw_pallete_grid() # Load Tiles to Pallete Grid (Pallete Grid is a selection of images/tiles)
+        # Palette Screen Variables
+        self.palette_surface = pygame.Surface((300, self.ORIGIN_HEIGHT // 1.5))
+        self.scroll_offset = 0
+        self.max_scroll = max(0, len(self.images[self.current_category]) // 3 * 75 - self.palette_surface.get_height())
 
-    def load_tiles_to_grid(self):
-        for y, tiles in enumerate(self.tile_map):
-            for x, tile in enumerate(tiles):
-                tile_num = int(tile)
+        # Grid Screen Variables
+        self.grid_surface_width ,self.grid_surface_height = 1024, 700
+        self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
+        self.grid_width, self.grid_height = self.grid_surface_width // self.tile_size, self.grid_surface_height // self.tile_size
+        # Camera Variables (Viewport)
+        self.camera_x, self.camera_y = 0, 0  # Camera position
+        self.zoom = 1.0  # Default zoom level
+        # World Variables (Imported World Level)
+        self.world_width, self.world_height = 1024,768
+        self.world_tilesize = 64
+        self.world_surface = pygame.Surface((self.world_width, self.world_height)) 
 
-                image = self.image_lookup.get(tile_num)
+        # Load tiles to grid and draw the palette
+        #self.load_tiles_to_grid()
+        self.draw_grid_surface()
+        self.draw_palette_surface()
 
-                image.draw((x * self.tile_size, y * self.tile_size))
+    def draw_palette_surface(self):
+        """Draw the tile palette grid."""
+        pygame.draw.rect(self.palette_surface, (105, 105, 105), (0, 0, self.palette_surface.get_width(), self.palette_surface.get_height()))
         
-        # Draw Grid
-        for y in range(len(self.tile_map)):
-            for x in range(len(self.tile_map[0])):
-                pygame.draw.rect(display, 'grey', (x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size), 1)
-
-    def draw_pallete_grid(self):
-        pygame.draw.rect(self.pallete_surface, (105,105,105), (0, 0, self.pallete_surface.get_width(),self.pallete_surface.get_height() ))
-        
-        self.current_category = list(self.images.keys())[self.catergory_index]
         row_gap = 75
         col_gap = 75
         tiles_per_row = 3
-        offset_pos = WIDTH
+        offset_pos = 1024
         
         # Calculate total number of tiles and rows needed
         total_tiles = len(self.images[self.current_category])
         total_rows = math.ceil(total_tiles / tiles_per_row)
         
         # Calculate the maximum scroll value based on content height
-        self.max_scroll = max(0, (total_rows * row_gap) - self.pallete_surface.get_height() + 40)
+        self.max_scroll = max(0, (total_rows * row_gap) - self.palette_surface.get_height() + 40)
         
         for i, image in enumerate(self.images[self.current_category]):
             col = i % tiles_per_row
@@ -155,70 +187,85 @@ class TileEditor():
             y = (row_gap * row) + 20 - self.scroll_offset
             
             # Only draw tiles that are within the viewport
-            if 0 <= y < self.pallete_surface.get_height() + row_gap:
+            if 0 <= y < self.palette_surface.get_height() + row_gap:
                 image.rect.topleft = (x, y)
-                image.draw((x - offset_pos, y), self.pallete_surface)
+                image.draw((x - offset_pos, y), self.palette_surface)
         
         # Add scroll indicators if content exceeds viewport
         if self.max_scroll > 0:
             if self.scroll_offset > 0:
                 # Draw up arrow or indicator
-                pygame.draw.polygon(self.pallete_surface, (200, 200, 200), 
-                                [(self.pallete_surface.get_width() // 2, 10), 
-                                    (self.pallete_surface.get_width() // 2 - 10, 25), 
-                                    (self.pallete_surface.get_width() // 2 + 10, 25)])
+                pygame.draw.polygon(self.palette_surface, (200, 200, 200), 
+                                [(self.palette_surface.get_width() // 2, 10), 
+                                 (self.palette_surface.get_width() // 2 - 10, 25), 
+                                 (self.palette_surface.get_width() // 2 + 10, 25)])
             
             if self.scroll_offset < self.max_scroll:
                 # Draw down arrow or indicator
-                pygame.draw.polygon(self.pallete_surface, (200, 200, 200), 
-                                [(self.pallete_surface.get_width() // 2, self.pallete_surface.get_height() - 10), 
-                                    (self.pallete_surface.get_width() // 2 - 10, self.pallete_surface.get_height() - 25), 
-                                    (self.pallete_surface.get_width() // 2 + 10, self.pallete_surface.get_height() - 25)])
+                pygame.draw.polygon(self.palette_surface, (200, 200, 200), 
+                                [(self.palette_surface.get_width() // 2, self.palette_surface.get_height() - 10), 
+                                 (self.palette_surface.get_width() // 2 - 10, self.palette_surface.get_height() - 25), 
+                                 (self.palette_surface.get_width() // 2 + 10, self.palette_surface.get_height() - 25)])
         
-        display.blit(self.pallete_surface, (WIDTH, 0))
+        self.ORIGIN_DISPLAY.blit(self.palette_surface, (1024, 0))
 
-    def show_updated_tiles(self):
-        if not self.updated_tiles:
-            return
-        
-        for tile in self.updated_tiles:
-            x, y, tile_num = tile
-            # Clear Tile Area
-            pygame.draw.rect(DISPLAY, 'black', (x * self.tile_size, y * self.tile_size,self.tile_size, self.tile_size))
+    def draw_grid_surface(self):
+        # Render Grid Surface
+        pygame.draw.rect(self.grid_surface, (255,255,255), (0,0, self.grid_surface_width, self.grid_surface_height))
 
-            if tile_num > 0:
-                image = self.image_lookup.get(tile_num)
-                image.draw((x * TILE_SIZE, y * TILE_SIZE))
-            
-            pygame.draw.rect(DISPLAY, 'grey', (x * self.tile_size, y * self.tile_size, self.tile_size, self.tile_size), 1)
+        # World Surface Blit #
+        self.world_surface.fill((30, 30, 30))  # Background Color
         
-        self.updated_tiles = set()
+        for y, tiles in enumerate(self.tile_map):
+            for x, tile in enumerate(tiles):
+                tile_num = int(tile)
+
+                image = self.tile_handler.get_tile_by_number(tile_num)
+                image.draw((x * self.world_tilesize, y * self.world_tilesize), self.world_surface)
+
+        for x in range(0, self.world_width, self.world_tilesize):
+            for y in range(0, self.world_height, self.world_tilesize):
+                pygame.draw.rect(self.world_surface, (80, 80, 80), (x, y, self.world_tilesize, self.world_tilesize), 1)
+
+        self.grid_surface.blit(self.world_surface, (-self.camera_x,-self.camera_y))
+        self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
     
     def handle_inputs(self):
+        """Handle user inputs."""
+        keys = pygame.key.get_pressed()
         just_pressed = pygame.key.get_just_pressed()
 
         if just_pressed[pygame.K_s]:
             self.tile_manager.tile_map = self.tile_map
             self.tile_manager.save_tilemap()
             print('Tilemap Saved')
-        elif just_pressed[pygame.K_l]:
-            self.load_tile = True
         elif just_pressed[pygame.K_LEFTBRACKET]:
-            self.catergory_index -= 1
-            self.catergory_index = (tile.catergory_index + len(tile.images)) % len(tile.images)
-            self.draw_pallete_grid()
+            self.category_index = (self.category_index - 1) % len(self.images)
+            self.current_category = list(self.images.keys())[self.category_index]
+            self.draw_grid_surface()
         elif just_pressed[pygame.K_RIGHTBRACKET]:
-            self.catergory_index += 1
-            self.catergory_index = (tile.catergory_index + len(tile.images)) % len(tile.images)
-            self.draw_pallete_grid()
+            self.category_index = (self.category_index + 1) % len(self.images)
+            self.current_category = list(self.images.keys())[self.category_index]
+            self.draw_grid_surface()
         elif just_pressed[pygame.K_n]:  # Scroll up
             self.scroll_offset = max(0, self.scroll_offset - 20)
-            self.draw_pallete_grid()
+            self.draw_grid_surface()
         elif just_pressed[pygame.K_m]:  # Scroll down
             self.scroll_offset = min(self.max_scroll, self.scroll_offset + 20)
-            self.draw_pallete_grid()
-        
-    def handle_tiles(self, tile_pos):   
+            self.draw_grid_surface()
+
+        # Camera Panning
+        if keys[pygame.K_UP]:
+            self.camera_y = max(-200, self.camera_y -10)
+        if keys[pygame.K_DOWN]: 
+            self.camera_y = min(200, self.camera_y + 10)
+        if keys[pygame.K_LEFT]: 
+            self.camera_x -= 10  # Move Left
+        if keys[pygame.K_RIGHT]: 
+            self.camera_x += 10  # Move Right
+
+    def handle_tiles(self, tile_pos):
+        """Handle tile placement and selection."""
         self.handle_inputs()
         
         add_tile, remove_tile = pygame.mouse.get_pressed()[0], pygame.mouse.get_pressed()[1]
@@ -237,31 +284,35 @@ class TileEditor():
             # Check if within bounds of the tilemap
             if 0 <= x < len(self.tile_map[0]) and 0 <= y < len(self.tile_map):
                 if add_tile and self.selected_tile is not None:
-                    self.updated_tiles.add((x,y,self.selected_tile))
+                    self.updated_tiles.add((x, y, self.selected_tile))
                     self.tile_map[y][x] = self.selected_tile
                     self.redraw = True
-
-        self.show_updated_tiles()
         
-    # Main Class Loop
     def run(self):
-        mouse_pos = min(max(pygame.mouse.get_pos()[0] // self.tile_size, 0), len(self.tile_map[0]) - 1), min(max(pygame.mouse.get_pos()[1] // self.tile_size, 0), len(self.tile_map) - 1)
-        
-        mdx, mdy = round(mouse_pos[0]), round(mouse_pos[1])
+        """Main loop for the tile editor."""
+        while self.running:
+            delta_time = self.clock.tick(60) / 1000
 
-        self.handle_tiles([mdx,mdy])
-    
-       
-tile = TileEditor(TILE_SIZE, join('assets', 'tilemap.csv'))
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
 
-while running:
-    dt = clock.tick(60) / 1000
+            # Get mouse position in grid coordinates
+            mouse_pos = (
+                min(max((pygame.mouse.get_pos()[0] + self.camera_x) // self.world_tilesize, 0), len(self.tile_map[0]) - 1),
+                min(max((pygame.mouse.get_pos()[1] + self.camera_y) // self.world_tilesize, 0), len(self.tile_map) - 1)
+            )
+            mdx, mdy = round(mouse_pos[0]), round(mouse_pos[1])
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+            # Handle tile placement and input
+            self.handle_tiles([mdx, mdy])
 
-    tile.run()
+            #self.load_tiles_to_grid()
+            self.draw_palette_surface()
+            self.draw_grid_surface()
 
-    pygame.display.update()
-pygame.quit()
+            pygame.display.update()
+
+        pygame.quit()
+
+TileEditor().run()

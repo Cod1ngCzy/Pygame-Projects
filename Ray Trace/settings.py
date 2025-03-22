@@ -2,6 +2,21 @@ import pygame, sys, math, json, csv, os
 from os.path import join
 from pygame import gfxdraw
 
+COLOR = {
+    "green": (0, 128, 0),
+    "light_green": (0, 255, 0),
+    "yellow": (255, 255, 0),
+    "gray": (128, 128, 128),
+    "brown": (139, 69, 19),
+    "chocolate": (210, 105, 30),
+    "red": (255, 0, 0),
+    "orange": (255, 165, 0),
+    "purple": (128, 0, 128),
+    "blue": (0, 0, 255),
+    "white": (255, 255, 255),
+    "light_gray": (200, 200, 200)
+}
+
 # Screen dimensions
 WIDTH, HEIGHT = 1024, 768
 
@@ -30,6 +45,7 @@ class Tile:
         # Create a rect for the tile and center it at (x, y)
         self.rect = self.image.get_frect(topleft=(x, y))
         self.tile_number = tile_number
+        self.is_collision = False
         self.image_name = os.path.basename(image_file_path)
     
     def draw(self, pos=None, display=None):

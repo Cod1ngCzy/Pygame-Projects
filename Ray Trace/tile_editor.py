@@ -149,7 +149,7 @@ class TileEditor:
         self.current_category = list(self.images.keys())[self.category_index]
 
         # --- Pallete Surface Variables --- #
-        self.pallete_width, self.pallete_height = 300, self.ORIGIN_HEIGHT // 1.5
+        self.pallete_width, self.pallete_height = 300, self.ORIGIN_HEIGHT // 2
         self.palette_surface = pygame.Surface((self.pallete_width, self.pallete_height))
         self.palette_surface_rect = self.palette_surface.get_frect(topleft = (1024,0))
         self.row_gap, self.col_gap = 75, 75
@@ -159,18 +159,19 @@ class TileEditor:
         # --- Pallete Surface Variables --- #
 
         # --- Grid Surface Variables --- #
-        # World Variables (Imported World Level)
-        self.world_width, self.world_height = 1024,768
-        self.world_tilesize = 64
-        self.world_surface = pygame.Surface((self.world_width, self.world_height)) 
-        self.world_surface_rect = self.world_surface.get_frect(topleft = (0,0))
         # Grid 
-        self.grid_surface_width ,self.grid_surface_height = 1024, 700
+        self.world_tilesize = 64
+        self.grid_surface_width ,self.grid_surface_height = 1024, 768
         self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
         self.grid_surface_rect = self.grid_surface.get_frect(topleft = (0,0))
         self.grid_width, self.grid_height = self.grid_surface_width // self.world_tilesize, self.grid_surface_height // self.world_tilesize
+        self.grid_static_bg = pygame.image.load(join('assets', 'grid_bg.png')).convert_alpha()
+        # World Variables (Imported World Level)
+        self.world_width, self.world_height = 1024,768
+        self.world_surface = pygame.Surface((self.world_width, self.world_height)) 
+        self.world_surface_rect = self.world_surface.get_frect(center = (self.grid_width // 2 ,self.grid_height // 2))
         # Camera Variables (Viewport)
-        self.zoom = 1.0  # Default zoom level
+        self.zoom = 1 # Default zoom level
         self.dragging = False
         self.start_drag_x, self.start_drag_y = 0,0
         self.start_camera_pos_x, self.start_camera_pos_y = 0,0
@@ -187,7 +188,8 @@ class TileEditor:
         self.draw_palette_surface()
 
     def draw_palette_surface(self):
-        pygame.draw.rect(self.palette_surface, (0, 0, 0), (0, 0, self.pallete_width, self.pallete_height))
+        pygame.draw.rect(self.palette_surface, (0,0,0), (0, 0, self.pallete_width, self.pallete_height))
+        pygame.draw.rect(self.palette_surface, (80,79,79), (0, 0, self.pallete_width, self.pallete_height), 1)
         
         # Calculate total number of tiles and rows needed
         total_tiles = len(self.images[self.current_category])
@@ -195,7 +197,7 @@ class TileEditor:
         offset_pos = self.ORIGIN_WIDTH - self.pallete_width
         
         # Calculate the maximum scroll value based on content height
-        self.max_scroll = max(0, (total_rows * self.row_gap) - self.pallete_height + 40)
+        self.max_scroll = max(0, (total_rows * self.row_gap) - self.pallete_height + 20)
         
         for i, image in enumerate(self.images[self.current_category]):
             col = i % self.max_rows
@@ -228,7 +230,9 @@ class TileEditor:
         self.ORIGIN_DISPLAY.blit(self.palette_surface, (1024, 0))
 
     def draw_grid_surface(self):
-        pygame.draw.rect(self.grid_surface, (255,255,255), (0,0, self.grid_surface_width, self.grid_surface_height))
+        self.grid_surface.fill((0,0,0))
+        self.grid_surface.blit(self.grid_static_bg,(-10,-5))
+        pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
         self.world_surface.fill((30, 30, 30))  
         
         for y, tiles in enumerate(self.tile_map):

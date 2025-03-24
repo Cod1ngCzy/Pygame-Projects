@@ -3,12 +3,14 @@ from os.path import join
 
 class Tile:
     def __init__(self, image_file_path, x, y, size=None, tile_number=None, display=None):
-        if size is None:
-            size = 64
-            
-        # Load and scale the tile image
+        # Load the tile image
         self.image = pygame.image.load(image_file_path).convert_alpha()
-        self.image = pygame.transform.scale(self.image, (size, size))
+        
+        # Use the provided size or default to 64
+        self.size = size if size is not None else 64
+        
+        # Scale the image once during initialization
+        self.image = pygame.transform.scale(self.image, (self.size, self.size))
         self.display = display
         
         # Create a rect for the tile and center it at (x, y)
@@ -16,14 +18,15 @@ class Tile:
         self.tile_number = tile_number
         self.is_collision = False
         self.image_name = os.path.basename(image_file_path)
-    
+
     def draw(self, pos=None, display=None):
         if pos is None:
             pos = self.rect
         
         if display == None:
             display = pygame.Surface((0,0))
-
+            
+        # No need to rescale every time - only blit the image
         display.blit(self.image, pos)
 
 class TileImageManager():
@@ -89,8 +92,9 @@ class TileMapManager():
     def __init__(self, file_path_to_map: str):
         self.root_path = 'assets' 
         self.file_name = file_path_to_map
+        self.tile_maps = self.check_existent_tilemaps()
         self.tile_map = {}
-
+        
         self.handle_tilemap()
 
     def handle_multiple_tilemap(self):
@@ -99,10 +103,15 @@ class TileMapManager():
 
     def handle_tilemap(self):
         # Checks if file name exists
-        if not os.path.exists(self.file_name):
-            print(f'{self.file_name} doesn\'t exists. \nCreating custom tilemap')
-            return False
-        
+        if os.path.exists(self.file_name):
+            self.tile_map = self.load_tilemap(self.file_name)
+            return True
+
+        print(f'{self.file_name} doesn\'t exists. \nCreating custom tilemap')
+        self.create_tilemap() # Default Tilemap
+        self.tile_map = self.load_tilemap('assets/new_map.csv')
+     
+    def load_tilemap(self, file_path):
         tilemap = {
             'metadata': {
                 'world_width': None,
@@ -114,7 +123,7 @@ class TileMapManager():
         }
 
         # If base check == true, open file
-        with open(self.file_name) as file:
+        with open(file_path) as file:
             csv_reader = csv.reader(file)
             parsing_metadata = False
 
@@ -132,23 +141,68 @@ class TileMapManager():
                 else:
                     tilemap['map'].append([int(x) for x in row])  # Store tilemap
 
-        self.tile_map = tilemap
-     
+        return tilemap
 
-    def save_tilemap(self):
+    def save_tilemap(self, tile_map=None):
+        tile_map_holder = []
+
         with open(self.file_name, 'w', newline='') as file:
             writer = csv.writer(file)
-            for row in self.tile_map:
+            
+            # Write metadata
+            writer.writerow(["#metadata"])
+            for key, value in self.tile_map['metadata'].items():
+                writer.writerow([key, value])
+            writer.writerow([])  # Empty row to separate metadata from tilemap
+            
+            # Write tilemap data
+            writer.writerow(["#tilemap"])
+            for row in self.tile_map['map']:
                 writer.writerow(row)
+        
         return True
     
-    def create_custom_tilemap(self):
-        tilemap = [[0 for _ in range(15)] for _ in range(11)]
+    def create_tilemap(self, width:int=None, height:int=None, tilesize:int=None, worldname:str=None):
+        default_width = width if width else 1024
+        default_height = height if height else 768
+        default_tilesize = tilesize if tilesize else 32
+        world_name = worldname if worldname else 'new_map'
+
+        default_tile_map = [[1 for _ in range(default_width // default_tilesize)] for _ in range(default_height // default_tilesize)]
+
+        with open(f'{self.root_path}/{world_name}.csv', 'w', newline='') as file:
+            meta_data_header, tilemap_header = '#metadata', '#tilemap'
+            csv_writer = csv.writer(file)
+
+            # CREATE METADATA HEADER
+            csv_writer.writerow([meta_data_header])
+            meta_data = {
+                    'world_width': default_width,
+                    'world_height':default_height,
+                    'world_tilesize': default_tilesize,
+                    'world_name': world_name
+                }
+            
+            for key, value in meta_data.items():
+                csv_writer.writerow([key, value])
+            
+            # Create empty space for seperation
+            csv_writer.writerow([])
+
+            # CREATE TILEMAP HEADER
+            csv_writer.writerow([tilemap_header])
+            for row in default_tile_map:
+                csv_writer.writerow(row)
+            
+        print(f'Successfully Created a new tilemap: {world_name}.csv')
+
+    def check_existent_tilemaps(self):
+        tile_maps = []
+        for path in os.listdir(self.root_path):
+            if path.endswith('.csv'):
+                tile_maps.append(join(self.root_path,path))
         
-        with open(join("assets", "tilemap.csv"), "w",) as file:
-            writer = csv.writer(file)
-            for row in tilemap:
-                writer.writerow(row)   
+        return tile_maps
 
 class TileEditor:
     def __init__(self):
@@ -170,11 +224,12 @@ class TileEditor:
     def init_tile_editor(self):
         # Tile Editor Variables
         self.tile_handler = TileImageManager()
-        self.tile_manager = TileMapManager(join('assets', 'tilemap.csv'))
+        self.tile_manager = TileMapManager(join('assets', 'tilema.csv'))
         
         # Reference the data from TileHandler and TileMapManager
         self.images = self.tile_handler.image_objects
         self.image_lookup = self.tile_handler.image_lookup
+
         self.tile_map = self.tile_manager.tile_map
 
         # State Variables
@@ -187,6 +242,7 @@ class TileEditor:
         self.selected_tile = None
         self.on_pallete = False
         self.on_grid = False
+        self.tilemap_found = True
     
     def init_grid_surface(self):
         # --- Grid Surface Variables --- #
@@ -267,29 +323,39 @@ class TileEditor:
         self.ORIGIN_DISPLAY.blit(self.palette_surface, (1024, 0))
 
     def draw_grid_surface(self):
-        self.grid_surface.fill((0,0,0))
-        self.grid_surface.blit(self.grid_static_bg,(-10,-5))
-        pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
-        self.world_surface.fill((30, 30, 30))  
-        
-        for y, tiles in enumerate(self.tile_map['map']):
-            for x, tile in enumerate(tiles):
-                tile_num = int(tile)
+        if self.tilemap_found:
+            self.grid_surface.fill((0,0,0))
+            self.grid_surface.blit(self.grid_static_bg,(-10,-5))
+            pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
+            self.world_surface.fill((30, 30, 30))  
+            
+            for y, tiles in enumerate(self.tile_map['map']):
+                for x, tile in enumerate(tiles):
+                    tile_num = int(tile)
 
-                image = self.tile_handler.get_tile_by_number(tile_num)
-                image.draw((x * self.world_tilesize, y * self.world_tilesize), self.world_surface)
+                    image = self.tile_handler.get_tile_by_number(tile_num)
+                    scaled_image = pygame.transform.scale(image.image, (self.world_tilesize, self.world_tilesize))
+                    self.world_surface.blit(scaled_image, (x * self.world_tilesize, y * self.world_tilesize))
 
-        for x in range(0, self.world_width, self.world_tilesize):
-            for y in range(0, self.world_height, self.world_tilesize):
-                pygame.draw.rect(self.world_surface, (80, 80, 80), (x, y, self.world_tilesize, self.world_tilesize), 1)
-        
-        scaled_world = pygame.transform.scale(self.world_surface, (self.world_width * self.zoom,self.world_height * self.zoom))
-        
-        self.world_surface_rect = -self.camera.x, -self.camera.y
+            for x in range(0, self.world_width, self.world_tilesize):
+                for y in range(0, self.world_height, self.world_tilesize):
+                    pygame.draw.rect(self.world_surface, (80, 80, 80), (x, y, self.world_tilesize, self.world_tilesize), 1)
+            
+            scaled_world = pygame.transform.scale(self.world_surface, (self.world_width * self.zoom,self.world_height * self.zoom))
+            
+            self.world_surface_rect = -self.camera.x, -self.camera.y
 
-        self.grid_surface.blit(scaled_world, self.world_surface_rect)
-        self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
-    
+            self.grid_surface.blit(scaled_world, self.world_surface_rect)
+            self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
+        else:
+            # Config Screen
+            self.grid_surface.fill((0,0,0))
+            self.grid_surface.blit(self.grid_static_bg,(-10,-5))
+            pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
+            
+            pygame.draw.rect(self.grid_surface, 'white', (self.grid_surface_width / 2, self.grid_surface_height / 2, 300,300))
+            self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
+             
     def handle_inputs(self):
         keys = pygame.key.get_pressed()
         just_pressed = pygame.key.get_just_pressed()

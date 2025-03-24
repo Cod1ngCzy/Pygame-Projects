@@ -1,4 +1,5 @@
-from settings import *
+import pygame, sys, math, json, csv, os
+from os.path import join
 
 class Tile:
     def __init__(self, image_file_path, x, y, size=None, tile_number=None, display=None):
@@ -86,24 +87,56 @@ class TileImageManager():
  
 class TileMapManager():
     def __init__(self, file_path_to_map: str):
-        self.file_path = file_path_to_map
-        self.tile_map = self.load_tilemap()
-    
-    def load_tilemap(self):  
-        map = []
-        if not os.path.exists(self.file_path):
-            print(f'{self.file_path} not found. Creating custom tilemap')
-            self.create_custom_tilemap()
-        
-        with open(self.file_path) as file:
-            tile = csv.reader(file, delimiter=',')
-            for row in tile:
-                map.append(list(row))
+        self.root_path = 'assets' 
+        self.file_name = file_path_to_map
+        self.tile_map = {}
 
-        return map
-    
+        self.handle_tilemap()
+
+    def handle_multiple_tilemap(self):
+        tilemapset = {}
+        pass # To Work On. Should handle multiple tiles (if many levels are created)
+
+    def handle_tilemap(self):
+        # Checks if file name exists
+        if not os.path.exists(self.file_name):
+            print(f'{self.file_name} doesn\'t exists. \nCreating custom tilemap')
+            return False
+        
+        tilemap = {
+            'metadata': {
+                'world_width': None,
+                'world_height':None,
+                'world_tilesize': None,
+                'world_name': None
+            },
+            'map': []
+        }
+
+        # If base check == true, open file
+        with open(self.file_name) as file:
+            csv_reader = csv.reader(file)
+            parsing_metadata = False
+
+            for row in csv_reader:
+                if not row or row[0].startswith("#"):  # Skip empty lines & comments
+                    if row and row[0] == "#metadata":
+                        parsing_metadata = True  # Start reading metadata
+                    elif row and row[0] == "#tilemap":
+                        parsing_metadata = False  # Stop reading metadata
+                    continue
+
+                if parsing_metadata:
+                    key, value = row
+                    tilemap['metadata'][key] = int(value) if value.isdigit() else value # Store metadata
+                else:
+                    tilemap['map'].append([int(x) for x in row])  # Store tilemap
+
+        self.tile_map = tilemap
+     
+
     def save_tilemap(self):
-        with open(self.file_path, 'w', newline='') as file:
+        with open(self.file_name, 'w', newline='') as file:
             writer = csv.writer(file)
             for row in self.tile_map:
                 writer.writerow(row)
@@ -130,9 +163,11 @@ class TileEditor:
         self.running = True
 
         # Initialize resources
-        self.init_resources()
-
-    def init_resources(self):
+        self.init_tile_editor()
+        self.init_grid_surface()
+        self.init_pallete_surface()
+    
+    def init_tile_editor(self):
         # Tile Editor Variables
         self.tile_handler = TileImageManager()
         self.tile_manager = TileMapManager(join('assets', 'tilemap.csv'))
@@ -148,26 +183,22 @@ class TileEditor:
             self.current_category = ''
         self.current_category = list(self.images.keys())[self.category_index]
 
-        # --- Pallete Surface Variables --- #
-        self.pallete_width, self.pallete_height = 300, self.ORIGIN_HEIGHT // 2
-        self.palette_surface = pygame.Surface((self.pallete_width, self.pallete_height))
-        self.palette_surface_rect = self.palette_surface.get_frect(topleft = (1024,0))
-        self.row_gap, self.col_gap = 75, 75
-        self.max_rows = 3
-        self.scroll_offset = 0
-        self.max_scroll = max(0, len(self.images[self.current_category]) // 3 * 75 - self.palette_surface.get_height())
-        # --- Pallete Surface Variables --- #
-
+        # State Variables
+        self.selected_tile = None
+        self.on_pallete = False
+        self.on_grid = False
+    
+    def init_grid_surface(self):
         # --- Grid Surface Variables --- #
         # Grid 
-        self.world_tilesize = 64
+        self.world_tilesize = self.tile_map['metadata']['world_tilesize']
         self.grid_surface_width ,self.grid_surface_height = 1024, 768
         self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
         self.grid_surface_rect = self.grid_surface.get_frect(topleft = (0,0))
         self.grid_width, self.grid_height = self.grid_surface_width // self.world_tilesize, self.grid_surface_height // self.world_tilesize
         self.grid_static_bg = pygame.image.load(join('assets', 'grid_bg.png')).convert_alpha()
         # World Variables (Imported World Level)
-        self.world_width, self.world_height = 1024,768
+        self.world_width, self.world_height = self.tile_map['metadata']['world_width'],self.tile_map['metadata']['world_height']
         self.world_surface = pygame.Surface((self.world_width, self.world_height)) 
         self.world_surface_rect = self.world_surface.get_frect(center = (self.grid_width // 2 ,self.grid_height // 2))
         # Camera Variables (Viewport)
@@ -177,15 +208,21 @@ class TileEditor:
         self.start_camera_pos_x, self.start_camera_pos_y = 0,0
         self.camera = pygame.Vector2(0,0)
         # --- Grid Surface Variables --- #
-
-        # State Variables
-        self.selected_tile = None
-        self.on_pallete = False
-        self.on_grid = False
-
-        # Load tiles to grid and draw the palette
         self.draw_grid_surface()
+        return True
+
+    def init_pallete_surface(self):
+        # --- Pallete Surface Variables --- #
+        self.pallete_width, self.pallete_height = 300, self.ORIGIN_HEIGHT // 2
+        self.palette_surface = pygame.Surface((self.pallete_width, self.pallete_height))
+        self.palette_surface_rect = self.palette_surface.get_frect(topleft = (1024,0))
+        self.row_gap, self.col_gap = 75, 75
+        self.max_rows = 3
+        self.scroll_offset = 0
+        self.max_scroll = 0
+        # --- Pallete Surface Variables --- #
         self.draw_palette_surface()
+        return True
 
     def draw_palette_surface(self):
         pygame.draw.rect(self.palette_surface, (0,0,0), (0, 0, self.pallete_width, self.pallete_height))
@@ -194,22 +231,22 @@ class TileEditor:
         # Calculate total number of tiles and rows needed
         total_tiles = len(self.images[self.current_category])
         total_rows = math.ceil(total_tiles / self.max_rows)
-        offset_pos = self.ORIGIN_WIDTH - self.pallete_width
+        screen_offset_pos = self.ORIGIN_WIDTH - self.pallete_width # Offset from original display screen
         
         # Calculate the maximum scroll value based on content height
         self.max_scroll = max(0, (total_rows * self.row_gap) - self.pallete_height + 20)
-        
+
         for i, image in enumerate(self.images[self.current_category]):
             col = i % self.max_rows
             row = i // self.max_rows
             
-            x = offset_pos + (self.col_gap * col) + 40
+            x = screen_offset_pos + (self.col_gap * col) + 40
             y = (self.row_gap * row) + 20 - self.scroll_offset
             
             # Only draw tiles that are within the viewport
             if 0 <= y < self.pallete_height + self.row_gap:
                 image.rect.topleft = (x, y)
-                image.draw((x - offset_pos, y), self.palette_surface)
+                image.draw((x - screen_offset_pos, y), self.palette_surface)
         
         # Add scroll indicators if content exceeds viewport
         if self.max_scroll > 0:
@@ -235,7 +272,7 @@ class TileEditor:
         pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
         self.world_surface.fill((30, 30, 30))  
         
-        for y, tiles in enumerate(self.tile_map):
+        for y, tiles in enumerate(self.tile_map['map']):
             for x, tile in enumerate(tiles):
                 tile_num = int(tile)
 
@@ -254,7 +291,6 @@ class TileEditor:
         self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
     
     def handle_inputs(self):
-        """Handle user inputs."""
         keys = pygame.key.get_pressed()
         just_pressed = pygame.key.get_just_pressed()
 
@@ -263,10 +299,12 @@ class TileEditor:
             self.tile_manager.save_tilemap()
             print('Tilemap Saved')
         elif just_pressed[pygame.K_LEFTBRACKET]:
+            self.scroll_offset = 0
             self.category_index = (self.category_index - 1) % len(self.images)
             self.current_category = list(self.images.keys())[self.category_index]
             self.draw_grid_surface()
         elif just_pressed[pygame.K_RIGHTBRACKET]:
+            self.scroll_offset = 0
             self.category_index = (self.category_index + 1) % len(self.images)
             self.current_category = list(self.images.keys())[self.category_index]
             self.draw_grid_surface()
@@ -342,9 +380,10 @@ class TileEditor:
         grid_y = int(world_y // self.world_tilesize)
 
         # Make sure grid coordinates are within bounds
-        if 0 <= grid_x < len(self.tile_map[0]) and 0 <= grid_y < len(self.tile_map):
+        if 0 <= grid_x < len(self.tile_map['map'][0]) and 0 <= grid_y < len(self.tile_map['map']):
             if mouse_click[0] and self.selected_tile:
-                self.tile_map[grid_y][grid_x] = self.selected_tile
+                self.tile_map['map'][grid_y][grid_x] = self.selected_tile
+                
         
         return self.tile_map
     

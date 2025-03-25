@@ -90,26 +90,45 @@ class TileImageManager():
  
 class TileMapManager():
     def __init__(self):
-        self.root_path = 'assets/maps' 
-        self._cache_tilemaps = {} # {map_name: loaded map}
+        self._root_path = 'assets/maps' 
+        self._accessed_tilemap = ''
+        self._cache_tilemaps = {} # {map_name: map_full_path}
+        self._map_names = self._cache_tilemaps.keys()
+
+        # Intialize Tile Map Manager
         self._init_tilemanager()
+    
+    def _handle_mapname_duplicate(self, map_name):
+        base_name = map_name
+        name_counter = 1
 
+        while map_name in self._cache_tilemaps:
+            if name_counter >= 3:
+                break
+            map_name = f'{base_name}_{name_counter}'
+            
+            name_counter += 1
+
+        return map_name
+    
     def _init_tilemanager(self):
-        while True:
-            tilemaps_path = [join(self.root_path, map_name) for map_name in os.listdir(self.root_path) if map_name.endswith('.csv')]    
+        tilemaps_path = [map_name for map_name in os.listdir(self._root_path) if map_name.endswith('.csv')]
 
-            if not tilemaps_path:
-                map_path = self.create_tilemap()
-                self._cache_tilemaps[os.path.basename(map_path).removesuffix('.csv')] = self.load_tilemap(map_path)
-                tilemaps_path.append(map_path)
-                continue
+        if tilemaps_path:
+            # First Item Only
+            if len(tilemaps_path) > 1:
+                map = tilemaps_path[0]
 
+            map = tilemaps_path
+
+            # Load Cache Data
             self._cache_tilemaps = {
-                os.path.basename(map_path).removesuffix('.csv') : self.load_tilemap(map_path)
-                for map_path in tilemaps_path
+                mapname: join(self._root_path, mapname)
+                for mapname in map
             }
-            break
-
+        else:
+            self.create_tilemap()
+            
     def load_tilemap(self, file_path):
         tilemap = {
             'metadata': {
@@ -140,24 +159,23 @@ class TileMapManager():
                 else:
                     tilemap['map'].append([int(x) for x in row])  # Store tilemap
 
-        self._cache_tilemaps[tilemap['metadata']['world_name']] = tilemap
         return tilemap
 
-    def save_tilemap(self, tile_map=None):
-        tile_map_holder = []
+    def save_tilemap(self,modified_tile_map):
+        tile_map = modified_tile_map
 
-        with open(self.file_name, 'w', newline='') as file:
+        with open(self._cache_tilemaps.get(self._accessed_tilemap), 'w', newline='') as file:
             writer = csv.writer(file)
             
             # Write metadata
             writer.writerow(["#metadata"])
-            for key, value in self.tile_map['metadata'].items():
+            for key, value in tile_map['metadata'].items():
                 writer.writerow([key, value])
             writer.writerow([])  # Empty row to separate metadata from tilemap
             
             # Write tilemap data
             writer.writerow(["#tilemap"])
-            for row in self.tile_map['map']:
+            for row in tile_map['map']:
                 writer.writerow(row)
         
         return True
@@ -166,10 +184,13 @@ class TileMapManager():
         default_width = width if width else 1024
         default_height = height if height else 768
         default_tilesize = tilesize if tilesize else 32
-        world_name = self.handle_mapname_duplicate(map_name) if map_name else self.handle_mapname_duplicate('untitled_map')
+        default_name = map_name if map_name else 'untitled_map'
         default_tile_map = [[1 for _ in range(default_width // default_tilesize)] for _ in range(default_height // default_tilesize)]
 
-        with open(f'{self.root_path}/{world_name}.csv', 'w', newline='') as file:
+        world_name = self._handle_mapname_duplicate(default_name)
+        full_path_map = join(self._root_path, f'{world_name}.csv')
+
+        with open(full_path_map, 'w', newline='') as file:
             meta_data_header, tilemap_header = '#metadata', '#tilemap'
             csv_writer = csv.writer(file)
 
@@ -192,23 +213,16 @@ class TileMapManager():
             csv_writer.writerow([tilemap_header])
             for row in default_tile_map:
                 csv_writer.writerow(row)
-            
-        self.load_tilemap(join(self.root_path, f'{world_name}.csv'))
-        return join(self.root_path, world_name)
+        
+        self._cache_tilemaps[world_name] = full_path_map # Updates and Stores, FILE NAME AND PATH ONLY (not loaded) lazy loading
 
-    def get_tilemap(self, map_name):
-        return self._cache_tilemaps[map_name] if self._cache_tilemaps[map_name] else f'{map_name} doesn\'t exists'
-    
-    def handle_mapname_duplicate(self, map_name):
-        base_name = map_name
-        name_counter = 1
-        while map_name in self._cache_tilemaps:
-            map_name = f'{base_name}{name_counter}'
-            name_counter += 1
-        
-        print(map_name)
-        return map_name
-        
+    def access_tilemap(self, map_name):
+        if map_name in self._cache_tilemaps:
+           self._accessed_tilemap = map_name
+           return self.load_tilemap(self._cache_tilemaps.get(map_name))
+        else:
+            raise FileNotFoundError
+             
 class TileEditor:
     def __init__(self):
         # Initialize Pygame
@@ -220,6 +234,7 @@ class TileEditor:
         # State Variables
         self.clock = pygame.time.Clock()
         self.running = True
+        self.font = pygame.font.Font(None, 36)
 
         # Initialize resources
         self._init_tile_editor()
@@ -234,8 +249,10 @@ class TileEditor:
         # Reference the data from TileHandler and TileMapManager
         self.images = self.tile_handler.image_objects
         self.image_lookup = self.tile_handler.image_lookup
-
-        self.tile_map = self.tile_manager.get_tilemap('tilemap')
+        
+        self.tile_map_index = 0
+        self.tile_map_keys = list(self.tile_manager._cache_tilemaps.keys())[self.tile_map_index]
+        self.tile_map = self.tile_manager.access_tilemap(self.tile_map_keys)
 
         # State Variables
         self.category_index = 0
@@ -248,6 +265,7 @@ class TileEditor:
         self.on_pallete = False
         self.on_grid = False
         self.tilemap_found = True
+        self.load_map = True
     
     def _init_grid_surface(self):
         # --- Grid Surface Variables --- #
@@ -327,7 +345,7 @@ class TileEditor:
         self.ORIGIN_DISPLAY.blit(self.palette_surface, (1024, 0))
 
     def draw_grid_surface(self):
-        if self.tilemap_found:
+        if self.tilemap_found and self.load_map == False:
             self.grid_surface.fill((0,0,0))
             self.grid_surface.blit(self.grid_static_bg,(-10,-5))
             pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
@@ -351,6 +369,12 @@ class TileEditor:
 
             self.grid_surface.blit(scaled_world, self.world_surface_rect)
             self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
+        elif self.load_map:
+            # Config Screen
+            self.grid_surface.fill((0,0,0))
+            self.grid_surface.blit(self.grid_static_bg,(-10,-5))
+
+            self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
         else:
             # Config Screen
             self.grid_surface.fill((0,0,0))
@@ -359,14 +383,13 @@ class TileEditor:
             
             pygame.draw.rect(self.grid_surface, 'white', (self.grid_surface_width / 2, self.grid_surface_height / 2, 300,300))
             self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
-             
+    
     def handle_inputs(self):
         keys = pygame.key.get_pressed()
         just_pressed = pygame.key.get_just_pressed()
 
         if just_pressed[pygame.K_s]:
-            self.tile_manager.tile_map = self.tile_map
-            self.tile_manager.save_tilemap()
+            self.tile_manager.save_tilemap(self.tile_map)
             print('Tilemap Saved')
         elif just_pressed[pygame.K_LEFTBRACKET]:
             self.scroll_offset = 0
@@ -453,8 +476,7 @@ class TileEditor:
         if 0 <= grid_x < len(self.tile_map['map'][0]) and 0 <= grid_y < len(self.tile_map['map']):
             if mouse_click[0] and self.selected_tile:
                 self.tile_map['map'][grid_y][grid_x] = self.selected_tile
-                
-        
+    
         return self.tile_map
     
     def run(self):

@@ -89,28 +89,27 @@ class TileImageManager():
         return self.image_lookup.get(number)
  
 class TileMapManager():
-    def __init__(self, file_path_to_map: str):
-        self.root_path = 'assets' 
-        self.file_name = file_path_to_map
-        self.tile_maps = self.check_existent_tilemaps()
-        self.tile_map = {}
-        
-        self.handle_tilemap()
+    def __init__(self):
+        self.root_path = 'assets/maps' 
+        self._cache_tilemaps = {} # {map_name: loaded map}
+        self._init_tilemanager()
 
-    def handle_multiple_tilemap(self):
-        tilemapset = {}
-        pass # To Work On. Should handle multiple tiles (if many levels are created)
+    def _init_tilemanager(self):
+        while True:
+            tilemaps_path = [join(self.root_path, map_name) for map_name in os.listdir(self.root_path) if map_name.endswith('.csv')]    
 
-    def handle_tilemap(self):
-        # Checks if file name exists
-        if os.path.exists(self.file_name):
-            self.tile_map = self.load_tilemap(self.file_name)
-            return True
+            if not tilemaps_path:
+                map_path = self.create_tilemap()
+                self._cache_tilemaps[os.path.basename(map_path).removesuffix('.csv')] = self.load_tilemap(map_path)
+                tilemaps_path.append(map_path)
+                continue
 
-        print(f'{self.file_name} doesn\'t exists. \nCreating custom tilemap')
-        self.create_tilemap() # Default Tilemap
-        self.tile_map = self.load_tilemap('assets/new_map.csv')
-     
+            self._cache_tilemaps = {
+                os.path.basename(map_path).removesuffix('.csv') : self.load_tilemap(map_path)
+                for map_path in tilemaps_path
+            }
+            break
+
     def load_tilemap(self, file_path):
         tilemap = {
             'metadata': {
@@ -141,6 +140,7 @@ class TileMapManager():
                 else:
                     tilemap['map'].append([int(x) for x in row])  # Store tilemap
 
+        self._cache_tilemaps[tilemap['metadata']['world_name']] = tilemap
         return tilemap
 
     def save_tilemap(self, tile_map=None):
@@ -162,12 +162,11 @@ class TileMapManager():
         
         return True
     
-    def create_tilemap(self, width:int=None, height:int=None, tilesize:int=None, worldname:str=None):
+    def create_tilemap(self, width:int=None, height:int=None, tilesize:int=None, map_name:str=None):
         default_width = width if width else 1024
         default_height = height if height else 768
         default_tilesize = tilesize if tilesize else 32
-        world_name = worldname if worldname else 'new_map'
-
+        world_name = self.handle_mapname_duplicate(map_name) if map_name else self.handle_mapname_duplicate('untitled_map')
         default_tile_map = [[1 for _ in range(default_width // default_tilesize)] for _ in range(default_height // default_tilesize)]
 
         with open(f'{self.root_path}/{world_name}.csv', 'w', newline='') as file:
@@ -194,16 +193,22 @@ class TileMapManager():
             for row in default_tile_map:
                 csv_writer.writerow(row)
             
-        print(f'Successfully Created a new tilemap: {world_name}.csv')
+        self.load_tilemap(join(self.root_path, f'{world_name}.csv'))
+        return join(self.root_path, world_name)
 
-    def check_existent_tilemaps(self):
-        tile_maps = []
-        for path in os.listdir(self.root_path):
-            if path.endswith('.csv'):
-                tile_maps.append(join(self.root_path,path))
+    def get_tilemap(self, map_name):
+        return self._cache_tilemaps[map_name] if self._cache_tilemaps[map_name] else f'{map_name} doesn\'t exists'
+    
+    def handle_mapname_duplicate(self, map_name):
+        base_name = map_name
+        name_counter = 1
+        while map_name in self._cache_tilemaps:
+            map_name = f'{base_name}{name_counter}'
+            name_counter += 1
         
-        return tile_maps
-
+        print(map_name)
+        return map_name
+        
 class TileEditor:
     def __init__(self):
         # Initialize Pygame
@@ -217,20 +222,20 @@ class TileEditor:
         self.running = True
 
         # Initialize resources
-        self.init_tile_editor()
-        self.init_grid_surface()
-        self.init_pallete_surface()
+        self._init_tile_editor()
+        self._init_grid_surface()
+        self._init_pallete_surface()
     
-    def init_tile_editor(self):
+    def _init_tile_editor(self):
         # Tile Editor Variables
         self.tile_handler = TileImageManager()
-        self.tile_manager = TileMapManager(join('assets', 'tilema.csv'))
+        self.tile_manager = TileMapManager()
         
         # Reference the data from TileHandler and TileMapManager
         self.images = self.tile_handler.image_objects
         self.image_lookup = self.tile_handler.image_lookup
 
-        self.tile_map = self.tile_manager.tile_map
+        self.tile_map = self.tile_manager.get_tilemap('tilemap')
 
         # State Variables
         self.category_index = 0
@@ -244,9 +249,8 @@ class TileEditor:
         self.on_grid = False
         self.tilemap_found = True
     
-    def init_grid_surface(self):
+    def _init_grid_surface(self):
         # --- Grid Surface Variables --- #
-        # Grid 
         self.world_tilesize = self.tile_map['metadata']['world_tilesize']
         self.grid_surface_width ,self.grid_surface_height = 1024, 768
         self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
@@ -267,7 +271,7 @@ class TileEditor:
         self.draw_grid_surface()
         return True
 
-    def init_pallete_surface(self):
+    def _init_pallete_surface(self):
         # --- Pallete Surface Variables --- #
         self.pallete_width, self.pallete_height = 300, self.ORIGIN_HEIGHT // 2
         self.palette_surface = pygame.Surface((self.pallete_width, self.pallete_height))

@@ -234,12 +234,13 @@ class TileEditor:
         # State Variables
         self.clock = pygame.time.Clock()
         self.running = True
-        self.font = pygame.font.Font(None, 36)
+        self.font = pygame.font.Font(None, 25)
 
         # Initialize resources
         self._init_tile_editor()
         self._init_grid_surface()
         self._init_pallete_surface()
+        self._init_config_surface()
     
     def _init_tile_editor(self):
         # Tile Editor Variables
@@ -251,7 +252,8 @@ class TileEditor:
         self.image_lookup = self.tile_handler.image_lookup
         
         self.tile_map_index = 0
-        self.tile_map_keys = list(self.tile_manager._cache_tilemaps.keys())[self.tile_map_index]
+        self.available_tile_maps = self.tile_manager._cache_tilemaps.keys()
+        self.tile_map_keys = list(self.available_tile_maps)[self.tile_map_index]
         self.tile_map = self.tile_manager.access_tilemap(self.tile_map_keys)
 
         # State Variables
@@ -264,8 +266,10 @@ class TileEditor:
         self.selected_tile = None
         self.on_pallete = False
         self.on_grid = False
+        self.on_config = False
         self.tilemap_found = True
-        self.load_map = True
+        self.load_map = False
+        self.create_map = False
     
     def _init_grid_surface(self):
         # --- Grid Surface Variables --- #
@@ -286,8 +290,6 @@ class TileEditor:
         self.start_camera_pos_x, self.start_camera_pos_y = 0,0
         self.camera = pygame.Vector2(0,0)
         # --- Grid Surface Variables --- #
-        self.draw_grid_surface()
-        return True
 
     def _init_pallete_surface(self):
         # --- Pallete Surface Variables --- #
@@ -298,10 +300,22 @@ class TileEditor:
         self.max_rows = 3
         self.scroll_offset = 0
         self.max_scroll = 0
-        # --- Pallete Surface Variables --- #
-        self.draw_palette_surface()
-        return True
 
+    def _init_config_surface(self):
+        self.config_width, self.config_height = 300, self.ORIGIN_HEIGHT // 2
+        self.config_surface = pygame.Surface((self.config_width, self.config_height))
+        self.config_surface_rect = self.config_surface.get_frect(topleft = (1024,self.ORIGIN_HEIGHT // 2))
+
+        # Assets Variable
+        self.asset_folder_img = pygame.image.load('assets/folder_img.png').convert_alpha()
+        self.asset_folder_img = pygame.transform.scale(self.asset_folder_img, (42,32))
+
+        # Texts
+        self.map_names = [self.font.render(f'{map_name}', True, (255,255,255)) for map_name in self.available_tile_maps]
+
+        # Config Flags
+        self.draw_once = True
+        
     def draw_palette_surface(self):
         pygame.draw.rect(self.palette_surface, (0,0,0), (0, 0, self.pallete_width, self.pallete_height))
         pygame.draw.rect(self.palette_surface, (80,79,79), (0, 0, self.pallete_width, self.pallete_height), 1)
@@ -370,11 +384,13 @@ class TileEditor:
             self.grid_surface.blit(scaled_world, self.world_surface_rect)
             self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
         elif self.load_map:
-            # Config Screen
             self.grid_surface.fill((0,0,0))
             self.grid_surface.blit(self.grid_static_bg,(-10,-5))
 
+            self._init_grid_surface()
+
             self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
+            self.load_map = False
         else:
             # Config Screen
             self.grid_surface.fill((0,0,0))
@@ -384,6 +400,20 @@ class TileEditor:
             pygame.draw.rect(self.grid_surface, 'white', (self.grid_surface_width / 2, self.grid_surface_height / 2, 300,300))
             self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
     
+    def draw_config_screen(self):
+        pygame.draw.rect(self.config_surface, (80,79,79), (0,0, self.config_width, self.config_height), 1)
+
+        row_gap = 60
+
+        if self.draw_once:
+            for i in range(len(self.available_tile_maps)):
+                print(len(self.tile_map_keys))
+                self.config_surface.blit(self.asset_folder_img, (20,i * row_gap + 10))
+                self.config_surface.blit(self.map_names[i], (65,i * row_gap + 25))
+            self.draw_once = False
+            
+        self.ORIGIN_DISPLAY.blit(self.config_surface, (self.config_surface_rect.topleft))
+
     def handle_inputs(self):
         keys = pygame.key.get_pressed()
         just_pressed = pygame.key.get_just_pressed()
@@ -409,6 +439,9 @@ class TileEditor:
             self.draw_grid_surface()
 
         # Zooming (In/Out)
+        if keys[pygame.K_8]:
+            self.load_map = True
+            self.tile_map = self.tile_manager.access_tilemap('zy_boy')
         if keys[pygame.K_q]:  # Zoom In
             self.zoom = min(2.0, self.zoom + 0.05)
         if keys[pygame.K_e]:  # Zoom Out
@@ -491,9 +524,42 @@ class TileEditor:
             self.handle_mouse()
             self.draw_palette_surface()
             self.draw_grid_surface()
+            self.draw_config_screen()
 
             pygame.display.update()
 
         pygame.quit()
 
+
+class TileEditor_Config():
+    def __init__(self):
+        self.config_width, self.config_height = 300, 300
+        self.config_surface = pygame.Surface((self.config_width, self.config_height))
+
+    def update(self):
+        pass
+
+    def render(self):
+        pass
+
+class TileEditor_Pallete():
+    def __init__(self):
+        pass
+
+    def update(self):
+        pass
+
+    def render(self):
+        pass
+
+class TileEditor_Grid():
+    def __init__(self):
+        pass
+
+    def update(self):
+        pass
+
+    def render(self):
+        pass
+    
 TileEditor().run()

@@ -256,9 +256,6 @@ class TileEditor:
         self.tile_map_keys = list(self.available_tile_maps)[self.tile_map_index]
         self.tile_map = self.tile_manager.access_tilemap(self.tile_map_keys)
 
-        self.tileeditor_grid = TileEditor_Grid(self.tile_map)
-        self.grid_surface_test = self.tileeditor_grid.get_surface()
-
         # State Variables
         self.category_index = 0
         if not len(self.images.keys()) > 1:
@@ -362,11 +359,46 @@ class TileEditor:
         self.ORIGIN_DISPLAY.blit(self.palette_surface, (1024, 0))
 
     def draw_grid_surface(self):
-        self.tileeditor_grid.render(self.camera)
-        self.tileeditor_grid.update()
+        if self.tilemap_found and self.load_map == False:
+            self.grid_surface.fill((0,0,0))
+            self.grid_surface.blit(self.grid_static_bg,(-10,-5))
+            pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
+            self.world_surface.fill((30, 30, 30))  
+            
+            for y, tiles in enumerate(self.tile_map['map']):
+                for x, tile in enumerate(tiles):
+                    tile_num = int(tile)
 
-        # This displays the grid surface on the main display.
-        self.ORIGIN_DISPLAY.blit(self.grid_surface_test, (0,0))
+                    image = self.tile_handler.get_tile_by_number(tile_num)
+                    scaled_image = pygame.transform.scale(image.image, (self.world_tilesize, self.world_tilesize))
+                    self.world_surface.blit(scaled_image, (x * self.world_tilesize, y * self.world_tilesize))
+
+            for x in range(0, self.world_width, self.world_tilesize):
+                for y in range(0, self.world_height, self.world_tilesize):
+                    pygame.draw.rect(self.world_surface, (80, 80, 80), (x, y, self.world_tilesize, self.world_tilesize), 1)
+            
+            scaled_world = pygame.transform.scale(self.world_surface, (self.world_width * self.zoom,self.world_height * self.zoom))
+            
+            self.world_surface_rect = -self.camera.x, -self.camera.y
+
+            self.grid_surface.blit(scaled_world, self.world_surface_rect)
+            self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
+        elif self.load_map:
+            self.grid_surface.fill((0,0,0))
+            self.grid_surface.blit(self.grid_static_bg,(-10,-5))
+
+            self._init_grid_surface()
+
+            self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
+            self.load_map = False
+        else:
+            # Config Screen
+            self.grid_surface.fill((0,0,0))
+            self.grid_surface.blit(self.grid_static_bg,(-10,-5))
+            pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
+            
+            pygame.draw.rect(self.grid_surface, 'white', (self.grid_surface_width / 2, self.grid_surface_height / 2, 300,300))
+            self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
     
     def draw_config_screen(self):
         pygame.draw.rect(self.config_surface, (80,79,79), (0,0, self.config_width, self.config_height), 1)
@@ -498,6 +530,7 @@ class TileEditor:
 
         pygame.quit()
 
+
 class TileEditor_Config():
     def __init__(self):
         self.config_width, self.config_height = 300, 300
@@ -520,105 +553,13 @@ class TileEditor_Pallete():
         pass
 
 class TileEditor_Grid():
-    def __init__(self, TILEMAP):
-        """
-            CLASS FUNCTION:
+    def __init__(self):
+        pass
 
-        """
-        # World Surface Variables
-        self.world_width = None
-        self.world_height = None
-        self.world_tilesize = None
+    def update(self):
+        pass
 
-        # This is a processed variable that is passed upon this function
-        self.TILEMAP = self._handle_tilemap(TILEMAP)
-
-        self.world_surface = pygame.Surface((self.world_width, self.world_height))
-        self.world_surface_rect = self.world_surface.get_frect(topleft=(0,0))
-        # Grid Surface Variables
-        self.grid_surface_width = 1024
-        self.grid_surface_height = 768
-        self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
-        self.grid_surface_rect = self.grid_surface.get_frect(topleft=(0,0)) 
-        self.grid_tile_width = self.grid_surface_width // self.world_tilesize if self.world_tilesize else None
-        self.grid_tile_height = self.grid_surface_height // self.world_tilesize if self.world_tilesize else None
-        
-
-        # TODO: Define Used Color for this Class    
-        self.IS_TILEMAP = False
-        self.RENDER_REDRAW = True
-
-    def _handle_tilemap(self, TILEMAP):
-        """
-            Function:
-                Validate tilemap metadata and update class attributes if valid.
-
-            Args:
-                TILEMAP: Dict containing 'metadata' with world_width, world_height, 
-                        and world_tilesize keys.
-
-            Returns:
-                dict: Valid TILEMAP if successful, None otherwise.
-        """
-
-        try:
-            world_width = TILEMAP['metadata']['world_width']
-            world_height = TILEMAP['metadata']['world_height']
-            world_tilesize = TILEMAP['metadata']['world_tilesize']
-
-            # If value are accessed, update the state variable
-            self.world_width = world_width
-            self.world_height = world_height
-            self.world_tilesize = world_tilesize
-
-            # Update State Variable that the function was succesful
-            self.IS_TILEMAP = True
-
-            print(f'Class Method Success\nProcessed:\nworld_width\nworld_height\nworld_tilesize.\nReturned tilemap') # DEBUG
-            return TILEMAP
-        except Exception as TILEMAP_ERROR:
-            return None, print(f'\nClass method \"_handle_tilemap\" fails. Returns None.\nError Info: {TILEMAP_ERROR}')
-    
-    def _draw_world_grid(self):
-        """
-            FUNCTION:
-                Draw World Grid
-
-            RETURNS:
-        """
-        
-        for y in range(0, self.world_height, self.world_tilesize):
-            for x in range(0, self.world_width, self.world_tilesize):
-                pygame.draw.rect(self.world_surface, (80,79,79),(x, y, self.world_tilesize, self.world_tilesize),1)
-
-    def _draw_world_tile(self):
-        """
-            FUNCTION:
-                Draw Tile Images on the Grid
-
-            RETURNS:
-        """
-
-        # TODO: Find a way to make the world_tile image have a local instance of the tile_handler. it should be able to access it to render images
-        """for i, tiles in enumerate(self.TILEMAP):
-            for j, tile in enumerate(tiles):
-                pygame.draw.rect() """
-
-    def render(self, camera):
-        self.grid_surface.fill((0,0,0))
-
-        self._draw_world_grid()
-        
-        # Adjust World Surface, this ensures zooming is handled and adjust world_surface
-        scaled_world_surface = pygame.transform.scale(self.world_surface, (self.world_width , self.world_height))
-
-        # Adjust world surface rect for panning. 
-        self.world_surface_rect = -camera.x, -camera.y
-
-        # Render the world surface on the grid surface.
-        self.grid_surface.blit(scaled_world_surface, self.world_surface_rect)
-    
-    def get_surface(self):
-        return self.grid_surface
+    def render(self):
+        pass
     
 TileEditor().run()

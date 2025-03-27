@@ -530,7 +530,6 @@ class TileEditor:
 
         pygame.quit()
 
-
 class TileEditor_Config():
     def __init__(self):
         self.config_width, self.config_height = 300, 300
@@ -553,13 +552,97 @@ class TileEditor_Pallete():
         pass
 
 class TileEditor_Grid():
-    def __init__(self):
-        pass
+    def __init__(self, TILEMAP):
+        """
+            CLASS FUNCTION:
+
+        """
+        # This is a processed variable that is passed upon this function
+        self.TILEMAP = self._handle_tilemap(TILEMAP)
+        # World Surface Variables
+        self.world_width = None
+        self.world_height = None
+        self.world_tilesize = None
+        # Grid Surface Variables
+        self.grid_surface_width = 300
+        self.grid_surface_height = 300
+        self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
+        self.grid_surface_rect = self.grid_surface.get_frect(topleft = (0,0)) 
+        self.grid_tile_width = self.grid_surface_width // self.world_tilesize if self.world_tilesize else None
+        self.grid_tile_height = self.grid_surface_height // self.world_tilesize if self.world_tilesize else None
+        
+
+        # TODO: Define Used Color for this Class    
+        self.IS_TILEMAP = False
+        self.RENDER_REDRAW = True
+
+    def _handle_tilemap(self, TILEMAP):
+        """
+            FUNCTION: 
+                Validate and process the input tilemap
+
+            RETURNS: 
+                dict or none: Processed tilemap or none if tilemap is invalid
+        """
+
+        try:
+            world_width = TILEMAP['metadata']['world_width']
+            world_height = TILEMAP['metadata']['world_height']
+            world_tilesize = TILEMAP['metadata']['world_tilesize']
+
+            # If value are accessed, update the state variable
+            self.world_width = world_width
+            self.world_height = world_height
+            self.world_tilesize = world_tilesize
+
+            # Update State Variable that the function was succesful
+            self.IS_TILEMAP = True
+
+            
+            print(f'Class Method Success\nProcessed:\nworld_width\nworld_height\world_tilesize.\nReturned tilemap') # DEBUG
+            return TILEMAP
+        except Exception as TILEMAP_ERROR:
+            return None, print(f'\nClass method \"_handle_tilemap\" fails. Returns None.\Error Info: {TILEMAP_ERROR}')
+    
+    def _draw_world_grid(self):
+        """
+            FUNCTION:
+                Draw World Grid
+            RETURNS:
+        """
+
+        for y in range(0, self.world_height, self.world_tilesize):
+            for x in range(0, self.world_width, self.world_tilesize):
+                pygame.draw.rect(self.grid_surface, (80,79,79),(x, y, self.world_tilesize, self.world_tilesize))
+
+    def _draw_world_tile(self):
+        """
+            FUNCTION:
+                Draw Tile Images on the Grid
+
+            RETURNS:
+        """
+
+        for i, tiles in enumerate(self.TILEMAP):
+            for j, tile in enumerate(tiles):
+                pygame.draw.rect() 
+
 
     def update(self):
-        pass
+        # TODO: Add outside variables that are updated then passed on this function
+        if self.RENDER_REDRAW:
+            print(f'Class Method: Update\nChecked condition RENDER_REDRAW...') # Debug
+            if self.IS_TILEMAP:
+                self._draw_world_grid()
+                self._draw_world_tile()
+                self.RENDER_REDRAW = False
+                print(f'\nClass Method Failed.\nNo Tilemap Found') # Debug
+            self.RENDER_REDRAW = False
+            print(f'\nClass Method Update Success') # Debug
 
     def render(self):
-        pass
+        # TODO: Render the grid surface and create another surface if tilemap is none
+        self.grid_surface.fill((0,0,0))
+        self.update()
     
 TileEditor().run()

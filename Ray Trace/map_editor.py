@@ -238,7 +238,6 @@ class TileEditor:
 
         # Initialize resources
         self._init_tile_editor()
-        self._init_grid_surface()
         self._init_pallete_surface()
         self._init_config_surface()
     
@@ -256,9 +255,12 @@ class TileEditor:
         self.tile_map_keys = list(self.available_tile_maps)[self.tile_map_index]
         self.tile_map = self.tile_manager.access_tilemap(self.tile_map_keys)
 
+        # Initialize screen components
+        self.grid_component = TileEditor_Grid(self.tile_map)
+        self.grid_component_surface = self.grid_component.get_surface() # TODO: Fix how tilemap is passed upon this function
+        self.grid_component_rect = self.grid_component_surface.get_rect(topleft = (0,0))
+
         self.category_index = 0
-        if not len(self.images.keys()) > 1:
-            self.current_category = ''
         self.current_category = list(self.images.keys())[self.category_index]
 
         # Flag Variables
@@ -269,26 +271,6 @@ class TileEditor:
         self.tilemap_found = True
         self.load_map = False
         self.create_map = False
-    
-    def _init_grid_surface(self):
-        # --- Grid Surface Variables --- #
-        self.world_tilesize = self.tile_map['metadata']['world_tilesize']
-        self.grid_surface_width ,self.grid_surface_height = 1024, 768
-        self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
-        self.grid_surface_rect = self.grid_surface.get_frect(topleft = (0,0))
-        self.grid_width, self.grid_height = self.grid_surface_width // self.world_tilesize, self.grid_surface_height // self.world_tilesize
-        self.grid_static_bg = pygame.image.load(join('assets', 'grid_bg.png')).convert_alpha()
-        # World Variables (Imported World Level)
-        self.world_width, self.world_height = self.tile_map['metadata']['world_width'],self.tile_map['metadata']['world_height']
-        self.world_surface = pygame.Surface((self.world_width, self.world_height)) 
-        self.world_surface_rect = self.world_surface.get_frect(center = (self.grid_width // 2 ,self.grid_height // 2))
-        # Camera Variables (Viewport)
-        self.zoom = 1 # Default zoom level
-        self.dragging = False
-        self.start_drag_x, self.start_drag_y = 0,0
-        self.start_camera_pos_x, self.start_camera_pos_y = 0,0
-        self.camera = pygame.Vector2(0,0)
-        # --- Grid Surface Variables --- #
 
     def _init_pallete_surface(self):
         # --- Pallete Surface Variables --- #
@@ -359,30 +341,8 @@ class TileEditor:
         self.ORIGIN_DISPLAY.blit(self.palette_surface, (1024, 0))
 
     def draw_grid_surface(self):
-        if self.tilemap_found and self.load_map == False:
-            self.grid_surface.fill((0,0,0))
-            self.grid_surface.blit(self.grid_static_bg,(-10,-5))
-            pygame.draw.rect(self.grid_surface, (80,79,79), (0,0, self.grid_surface_width, self.grid_surface_height),1)
-            self.world_surface.fill((30, 30, 30))  
-            
-            for y, tiles in enumerate(self.tile_map['map']):
-                for x, tile in enumerate(tiles):
-                    tile_num = int(tile)
-
-                    image = self.tile_handler.get_tile_by_number(tile_num)
-                    scaled_image = pygame.transform.scale(image.image, (self.world_tilesize, self.world_tilesize))
-                    self.world_surface.blit(scaled_image, (x * self.world_tilesize, y * self.world_tilesize))
-
-            for x in range(0, self.world_width, self.world_tilesize):
-                for y in range(0, self.world_height, self.world_tilesize):
-                    pygame.draw.rect(self.world_surface, (80, 80, 80), (x, y, self.world_tilesize, self.world_tilesize), 1)
-            
-            scaled_world = pygame.transform.scale(self.world_surface, (self.world_width * self.zoom,self.world_height * self.zoom))
-            
-            self.world_surface_rect = -self.camera.x, -self.camera.y
-
-            self.grid_surface.blit(scaled_world, self.world_surface_rect)
-            self.ORIGIN_DISPLAY.blit(self.grid_surface, (0,0))
+            self.grid_component.render() 
+            self.ORIGIN_DISPLAY.blit(self.grid_component_surface, (0,0))
 
     def draw_config_screen(self):
         pygame.draw.rect(self.config_surface, (80,79,79), (0,0, self.config_width, self.config_height), 1)
@@ -406,9 +366,6 @@ class TileEditor:
         self.config_surface.blit(self.save_btn_image, (self.save_btn_rect))
         self.config_surface.blit(self.create_btn_image, (self.create_btn_rect))
         self.config_surface.blit(self.load_btn_image, (self.load_btn_rect))    
-    
-    def config_tileinfo_mode(self):
-        pass
 
     def handle_inputs(self):
         keys = pygame.key.get_pressed()
@@ -442,36 +399,19 @@ class TileEditor:
 
         # Recalculate tile size for zoom effect
     
-    def handle_camera_panning(self, mouse_pos):
-        delta_change_x = self.start_drag_x - mouse_pos[0]
-        delta_change_y = self.start_drag_y - mouse_pos[1]
-
-        self.camera.x = self.start_camera_pos_x + delta_change_x
-        self.camera.y = self.start_camera_pos_y + delta_change_y
-
     def handle_mouse(self):
         mouse_pos = pygame.mouse.get_pos()
         mouse_click = pygame.mouse.get_pressed()
         mouse_just_click = pygame.mouse.get_just_pressed()
         mouse_just_released = pygame.mouse.get_just_released()
-        
-        # Mouse Clicks
-        if mouse_just_click[2]:
-            self.start_drag_x, self.start_drag_y = mouse_pos[0], mouse_pos[1]
-            self.start_camera_pos_x, self.start_camera_pos_y = self.camera.x, self.camera.y
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEALL)
-            self.dragging = True
-        if mouse_just_released[2]:
-            self.dragging = False
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
-        # Mouse Collisions
+        # === MOUSE SURFACE COLLISIONS === #
         if self.palette_surface_rect.collidepoint(mouse_pos):
             self.on_pallete = True
         else:
             self.on_pallete = False
 
-        if self.grid_surface_rect.collidepoint(mouse_pos):
+        if self.grid_component_rect.collidepoint(mouse_pos):
             self.on_grid = True
         else:
             self.on_grid = False
@@ -480,37 +420,23 @@ class TileEditor:
             self.on_config = True
         else:
             self.on_config = False
+        # === MOUSE SURFACE COLLISIONS === #
 
         # If on pallete
         if self.on_pallete:
             self.handle_pallete_interactions(mouse_pos, mouse_click)
-        elif self.on_grid:
-            self.handle_grid_interactions(mouse_pos, mouse_click)
-            if self.dragging:
-                self.handle_camera_panning(mouse_pos)
         elif self.on_config:
             self.handle_config_interactions(mouse_pos, mouse_just_click)
+        
+        self.grid_component.handle_mouse(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid)
+        
+        '''if self.dragging:
+            self.handle_camera_panning(mouse_pos)'''
     
     def handle_pallete_interactions(self, mouse_pos, mouse_click):
         for image in self.images[self.current_category]:
             if image.rect.collidepoint(mouse_pos) and mouse_click[0]:
                 self.selected_tile = image.tile_number
-    
-    def handle_grid_interactions(self, mouse_pos, mouse_click):
-        # Convert mouse position into world space, accounting for camera position and zoom
-        world_x = (mouse_pos[0] + self.camera.x) / self.zoom 
-        world_y = (mouse_pos[1] + self.camera.y) / self.zoom
-
-        # Convert world position to grid indices
-        grid_x = int(world_x // self.world_tilesize)
-        grid_y = int(world_y // self.world_tilesize)
-
-        # Make sure grid coordinates are within bounds
-        if 0 <= grid_x < len(self.tile_map['map'][0]) and 0 <= grid_y < len(self.tile_map['map']):
-            if mouse_click[0] and self.selected_tile:
-                self.tile_map['map'][grid_y][grid_x] = self.selected_tile
-    
-        return self.tile_map
     
     def handle_config_interactions(self, mouse_pos, mouse_click):
         # Convert mouse pos to the local screen 
@@ -524,7 +450,6 @@ class TileEditor:
         elif self.create_btn_rect.collidepoint(local_mouse_pos) and mouse_click[0]:
             print('on create')
 
-    
     def run(self):
         while self.running:
             delta_time = self.clock.tick(60) / 1000
@@ -543,4 +468,171 @@ class TileEditor:
 
         pygame.quit()
 
+class TileEditor_Config():
+    def __init__(self):
+        self.config_width, self.config_height = 300, 300
+        self.config_surface = pygame.Surface((self.config_width, self.config_height))
+
+    def update(self):
+        pass
+
+    def render(self):
+        pass
+
+class TileEditor_Pallete():
+    def __init__(self):
+        pass
+
+    def update(self):
+        pass
+
+    def render(self):
+        pass
+
+class TileEditor_Grid():
+    def __init__(self, TILEMAP):
+        """
+            CLASS FUNCTION:
+
+        """
+        # World Surface Variables
+        self.world_width = None
+        self.world_height = None
+        self.world_tilesize = None
+
+        # This is a processed variable that is passed upon this function
+        self.TILEMAP = self._handle_tilemap(TILEMAP)
+
+        self.world_surface = pygame.Surface((self.world_width, self.world_height))
+        self.world_surface_rect = self.world_surface.get_frect(topleft=(0,0))
+        # Grid Surface Variables
+        self.grid_surface_width = 1024
+        self.grid_surface_height = 768
+        self.grid_surface = pygame.Surface((self.grid_surface_width, self.grid_surface_height))
+        self.grid_surface_rect = self.grid_surface.get_frect(topleft=(0,0)) 
+        self.grid_tile_width = self.grid_surface_width // self.world_tilesize if self.world_tilesize else None
+        self.grid_tile_height = self.grid_surface_height // self.world_tilesize if self.world_tilesize else None
+
+        # Zoom and Panning Variables
+        self.zoom = 1 
+        self.dragging = False
+        self.start_drag_x, self.start_drag_y = 0,0
+        self.start_camera_pos_x, self.start_camera_pos_y = 0,0
+        self.camera = pygame.Vector2(0,0)
+
+        # TODO: Define Used Color for this Class    
+        self.IS_TILEMAP = False
+        self.RENDER_REDRAW = True
+
+    def _handle_tilemap(self, TILEMAP):
+        """
+            Function:
+                Validate tilemap metadata and update class attributes if valid.
+
+            Args:
+                TILEMAP: Dict containing 'metadata' with world_width, world_height, 
+                        and world_tilesize keys.
+
+            Returns:
+                dict: Valid TILEMAP if successful, None otherwise.
+        """
+
+        try:
+            world_width = TILEMAP['metadata']['world_width']
+            world_height = TILEMAP['metadata']['world_height']
+            world_tilesize = TILEMAP['metadata']['world_tilesize']
+
+            # If value are accessed, update the state variable
+            self.world_width = world_width
+            self.world_height = world_height
+            self.world_tilesize = world_tilesize
+
+            # Update State Variable that the function was succesful
+            self.IS_TILEMAP = True
+
+            print(f'Class Method Success\nProcessed:\nworld_width\nworld_height\nworld_tilesize.\nReturned tilemap') # DEBUG
+            return TILEMAP
+        except Exception as TILEMAP_ERROR:
+            return None, print(f'\nClass method \"_handle_tilemap\" fails. Returns None.\nError Info: {TILEMAP_ERROR}')
+    
+    def _draw_world_grid(self):
+        """
+            FUNCTION:
+                Draw World Grid
+
+            RETURNS:
+        """
+        
+        for y in range(0, self.world_height, self.world_tilesize):
+            for x in range(0, self.world_width, self.world_tilesize):
+                pygame.draw.rect(self.world_surface, (80,79,79),(x, y, self.world_tilesize, self.world_tilesize),1)
+
+    def _draw_world_tile(self):
+        """
+            FUNCTION:
+                Draw Tile Images on the Grid
+
+            RETURNS:
+        """
+
+        # TODO: Find a way to make the world_tile image have a local instance of the tile_handler. it should be able to access it to render images
+        """for i, tiles in enumerate(self.TILEMAP):
+            for j, tile in enumerate(tiles):
+                pygame.draw.rect() """
+
+    def _handle_grid_interactions(self, mouse_pos, mouse_click):
+        # Convert mouse position into world space, accounting for camera position and zoom
+        world_x = (mouse_pos[0] + self.camera.x) / self.zoom 
+        world_y = (mouse_pos[1] + self.camera.y) / self.zoom
+
+        # Convert world position to grid indices
+        grid_x = int(world_x // self.world_tilesize)
+        grid_y = int(world_y // self.world_tilesize)
+
+        # Make sure grid coordinates are within bounds
+        if 0 <= grid_x < len(self.TILEMAP['map'][0]) and 0 <= grid_y < len(self.TILEMAP['map']):
+            if mouse_click[0] and self.selected_tile:
+                self.TILEMAP['map'][grid_y][grid_x] = self.selected_tile
+    
+    def _handle_camera_panning(self, mouse_pos):
+        delta_change_x = self.start_drag_x - mouse_pos[0]
+        delta_change_y = self.start_drag_y - mouse_pos[1]
+
+        self.camera.x = self.start_camera_pos_x + delta_change_x
+        self.camera.y = self.start_camera_pos_y + delta_change_y
+        
+    def render(self):
+        self.grid_surface.fill((0,0,0))
+
+        self._draw_world_grid()
+        
+        # Adjust World Surface, this ensures zooming is handled and adjust world_surface
+        scaled_world_surface = pygame.transform.scale(self.world_surface, (self.world_width , self.world_height))
+
+        # Adjust world surface rect for panning. 
+        self.world_surface_rect = -self.camera.x, -self.camera.y
+
+        # Render the world surface on the grid surface.
+        self.grid_surface.blit(scaled_world_surface, self.world_surface_rect)
+    
+    def handle_mouse(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, mouse_on_grid):
+        # Handle Mouse Clicks
+        if mouse_just_click[2]:
+            self.start_drag_x, self.start_drag_y = mouse_pos[0], mouse_pos[1]
+            self.start_camera_pos_x, self.start_camera_pos_y = self.camera.x, self.camera.y
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_SIZEALL)
+            self.dragging = True
+        if mouse_just_released[2]:
+            self.dragging = False
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+        
+        # Handle Grid Interactions
+        if mouse_on_grid:
+            self._handle_grid_interactions(mouse_pos, mouse_click)
+            if self.dragging:
+                self._handle_camera_panning(mouse_pos)
+    
+    def get_surface(self):
+        return self.grid_surface
+    
 TileEditor().run()

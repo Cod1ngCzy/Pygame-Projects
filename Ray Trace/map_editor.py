@@ -261,7 +261,7 @@ class TileEditor:
 
         self.pallete_component = TileEditor_Pallete(self.images, self.image_lookup)
         self.pallete_component_surface = self.pallete_component.get_surface()
-        self.pallete_component_rect = self.pallete_component_surface.get_rect(topleft = (0,0))
+        self.pallete_component_rect = self.pallete_component_surface.get_rect(topleft = (1024,0))
 
         # Flag Variables
         self.selected_tilenum = None
@@ -287,11 +287,11 @@ class TileEditor:
         # Config Flags
         self.draw_once = True
         
-    def _draw_palette_surface(self):
+    def _handle_palette_surface(self):
         self.pallete_component.render()
         self.ORIGIN_DISPLAY.blit(self.pallete_component_surface, (1024, 0))
 
-    def _draw_grid_surface(self):
+    def _handle_grid_surface(self):
         self.grid_component.render() 
         self.ORIGIN_DISPLAY.blit(self.grid_component_surface, (0,0))
 
@@ -338,6 +338,7 @@ class TileEditor:
         # === MOUSE === #
         if self.pallete_component_rect.collidepoint(mouse_pos):
             self.on_pallete = True
+            self.selected_tilenum = self.pallete_component.get_selected_tilenum()
         else:
             self.on_pallete = False
 
@@ -357,7 +358,7 @@ class TileEditor:
             self.handle_config_interactions(mouse_pos, mouse_just_click)
 
         self.pallete_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
-        self.grid_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
+        self.grid_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed, self.selected_tilenum)
 
     def handle_config_interactions(self, mouse_pos, mouse_click):
         # Convert mouse pos to the local screen 
@@ -382,9 +383,9 @@ class TileEditor:
             # Input Management Methods
             self.handle_inputs()
 
-            # Render Management Methods
-            self._draw_palette_surface()
-            self._draw_grid_surface()
+            # Component Management Methods
+            self._handle_palette_surface()
+            self._handle_grid_surface()
             self._draw_config_screen()
 
             pygame.display.update()
@@ -422,10 +423,11 @@ class TileEditor_Pallete():
         self.selected_tilenum = None
 
     def _handle_pallete_interactions(self, mouse_pos, mouse_click):
+        pallete_relative_pos = (mouse_pos[0] - 1024 + self.col_gap, mouse_pos[1])
+
         for image in self.images[self.current_category]:
-            if image.rect.collidepoint(mouse_pos) and mouse_click[0]:
+            if image.rect.collidepoint(pallete_relative_pos) and mouse_click[0]:
                 self.selected_tilenum = image.tile_number
-                print(self.selected_tilenum)
 
     def render(self):
         pygame.draw.rect(self.palette_surface, (0,0,0), (0, 0, self.palette_width, self.palette_height))
@@ -489,7 +491,7 @@ class TileEditor_Pallete():
         return self.palette_surface
 
 class TileEditor_Grid():
-    def __init__(self, TILEMAP, tile_handler, tile_manager):
+    def __init__(self, tilemap, tile_handler, tile_manager):
         """
             CLASS FUNCTION:
 
@@ -500,7 +502,7 @@ class TileEditor_Grid():
         self.world_tilesize = None
 
         # This is a processed variable that is passed upon this function
-        self.TILEMAP = self._handle_tilemap(TILEMAP)
+        self.TILEMAP = self._handle_tilemap(tilemap)
         self.TILE_HANDLER = tile_handler
         self.TILE_MANAGER = tile_manager
 
@@ -585,7 +587,7 @@ class TileEditor_Grid():
                 scaled_image = pygame.transform.scale(image.image, (self.world_tilesize, self.world_tilesize))
                 self.world_surface.blit(scaled_image, (x * self.world_tilesize, y * self.world_tilesize))            
 
-    def _handle_grid_interactions(self, mouse_pos, mouse_click):
+    def _handle_grid_interactions(self, mouse_pos, mouse_click, selected_tilenum):
         # Convert mouse position into world space, accounting for camera position and zoom
         world_x = (mouse_pos[0] + self.camera.x) / self.zoom 
         world_y = (mouse_pos[1] + self.camera.y) / self.zoom
@@ -597,8 +599,8 @@ class TileEditor_Grid():
         # TODO: now how can we update the tilemap on the main class? YOU FUCKING FIND IT OUT.
         # Make sure grid coordinates are within bounds
         if 0 <= grid_x < len(self.TILEMAP['map'][0]) and 0 <= grid_y < len(self.TILEMAP['map']):
-            if mouse_click[0] and self.selected_tile:
-                self.TILEMAP['map'][grid_y][grid_x] = self.selected_tile
+            if mouse_click[0] and selected_tilenum:
+                self.TILEMAP['map'][grid_y][grid_x] = selected_tilenum
     
     def _handle_camera_panning(self, mouse_pos):
         delta_change_x = self.start_drag_x - mouse_pos[0]
@@ -622,7 +624,7 @@ class TileEditor_Grid():
         # Render the world surface on the grid surface.
         self.grid_surface.blit(scaled_world_surface, self.world_surface_rect)
     
-    def handle_inputs(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, mouse_on_grid, keys, keys_just_pressed):
+    def handle_inputs(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, mouse_on_grid, keys, keys_just_pressed, selected_tilenum):
         # Handle Mouse Clicks
         if mouse_just_click[2]:
             self.start_drag_x, self.start_drag_y = mouse_pos[0], mouse_pos[1]
@@ -635,7 +637,7 @@ class TileEditor_Grid():
         
         # Handle Grid Interactions
         if mouse_on_grid:
-            self._handle_grid_interactions(mouse_pos, mouse_click)
+            self._handle_grid_interactions(mouse_pos, mouse_click, selected_tilenum)
             if self.dragging:
                 self._handle_camera_panning(mouse_pos)
         

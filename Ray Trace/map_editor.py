@@ -238,7 +238,6 @@ class TileEditor:
 
         # Initialize resources
         self._init_tile_editor()
-        self._init_config_surface()
     
     def _init_tile_editor(self):
         # Create an instance of classes
@@ -257,11 +256,15 @@ class TileEditor:
         # Initialize screen components
         self.grid_component = TileEditor_Grid(self.tile_map,self.tile_handler, self.tilemap_manager)
         self.grid_component_surface = self.grid_component.get_surface() # TODO: Fix how tilemap is passed upon this function
-        self.grid_component_rect = self.grid_component_surface.get_rect(topleft = (0,0))
+        self.grid_component_rect = self.grid_component_surface.get_frect(topleft = (0,0))
 
         self.pallete_component = TileEditor_Pallete(self.images, self.image_lookup)
         self.pallete_component_surface = self.pallete_component.get_surface()
-        self.pallete_component_rect = self.pallete_component_surface.get_rect(topleft = (1024,0))
+        self.pallete_component_rect = self.pallete_component_surface.get_frect(topleft = (1024,0))
+
+        self.config_component = TileEditor_Config(self.tile_map, self.font)
+        self.config_component_surface = self.config_component.get_surface()
+        self.config_component_rect = self.config_component_surface.get_frect(topleft = (1024, 768 / 2))
 
         # Flag Variables
         self.selected_tilenum = None
@@ -271,52 +274,17 @@ class TileEditor:
         self.load_map = False
         self.create_map = False
 
-    def _init_config_surface(self):
-        self.config_width, self.config_height = 300, self.ORIGIN_HEIGHT // 2
-        self.config_surface = pygame.Surface((self.config_width, self.config_height))
-        self.config_surface_rect = self.config_surface.get_frect(topleft = (1024,self.ORIGIN_HEIGHT // 2))
+    def _handle_config_surface(self):
+        self.config_component.render()
+        self.ORIGIN_DISPLAY.blit(self.config_component_surface, self.config_component_rect.topleft)
 
-        # Images
-        self.save_btn_image = pygame.image.load('assets/save_btn.png').convert_alpha()
-        self.save_btn_rect = self.save_btn_image.get_frect(topleft = (20,self.config_height - 40))
-        self.create_btn_image = pygame.image.load('assets/create_btn.png').convert_alpha()
-        self.create_btn_rect = self.create_btn_image.get_frect(topleft = (110,self.config_height - 40))
-        self.load_btn_image = pygame.image.load('assets/load_btn.png').convert_alpha()
-        self.load_btn_rect = self.load_btn_image.get_frect(topleft = (220,self.config_height - 40))
-
-        # Config Flags
-        self.draw_once = True
-        
     def _handle_palette_surface(self):
         self.pallete_component.render()
-        self.ORIGIN_DISPLAY.blit(self.pallete_component_surface, (1024, 0))
+        self.ORIGIN_DISPLAY.blit(self.pallete_component_surface, self.pallete_component_rect.topleft)
 
     def _handle_grid_surface(self):
         self.grid_component.render() 
-        self.ORIGIN_DISPLAY.blit(self.grid_component_surface, (0,0))
-
-    def _draw_config_screen(self):
-        pygame.draw.rect(self.config_surface, (80,79,79), (0,0, self.config_width, self.config_height), 1)
-        row_gap = 60
-
-        # Load File Mode
-        if self.draw_once:
-            self.config_file_mode()
-            self.draw_once = False
-        
-        # Load Tile Info Mode
-        self.ORIGIN_DISPLAY.blit(self.config_surface, (self.config_surface_rect.topleft))
-    
-    def config_file_mode(self):
-        txt_gap = 20
-
-        for i,data in enumerate(self.tile_map['metadata'].values()):
-            txt_surface = self.font.render(str(data), True, (255,255,255))
-            self.config_surface.blit(txt_surface, (20, i * txt_gap + 20))
-
-        self.config_surface.blit(self.save_btn_image, (self.save_btn_rect))
-        self.config_surface.blit(self.create_btn_image, (self.create_btn_rect))
-        self.config_surface.blit(self.load_btn_image, (self.load_btn_rect))    
+        self.ORIGIN_DISPLAY.blit(self.grid_component_surface, self.grid_component_rect.topleft)
     
     def handle_inputs(self):
         # Mouse Interactions
@@ -347,30 +315,15 @@ class TileEditor:
         else:
             self.on_grid = False
         
-        if self.config_surface_rect.collidepoint(mouse_pos):
+        if self.config_component_rect.collidepoint(mouse_pos):
             self.on_config = True
         else:
             self.on_config = False
         # === MOUSE === #
 
-        # Update indivual instances
-        if self.on_config:
-            self.handle_config_interactions(mouse_pos, mouse_just_click)
-
+        self.config_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
         self.pallete_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
         self.grid_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed, self.selected_tilenum)
-
-    def handle_config_interactions(self, mouse_pos, mouse_click):
-        # Convert mouse pos to the local screen 
-        local_mouse_pos = (mouse_pos[0] - self.config_surface_rect.left, 
-                           mouse_pos[1] - self.config_surface_rect.top)
-        
-        if self.save_btn_rect.collidepoint(local_mouse_pos) and mouse_click[0]:
-            print('on save')
-        elif self.load_btn_rect.collidepoint(local_mouse_pos) and mouse_click[0]:
-            print('on load')
-        elif self.create_btn_rect.collidepoint(local_mouse_pos) and mouse_click[0]:
-            print('on create')
 
     def run(self):
         while self.running:
@@ -386,23 +339,70 @@ class TileEditor:
             # Component Management Methods
             self._handle_palette_surface()
             self._handle_grid_surface()
-            self._draw_config_screen()
+            self._handle_config_surface()
 
             pygame.display.update()
 
         pygame.quit()
 
 class TileEditor_Config():
-    def __init__(self):
-        self.config_width, self.config_height = 300, 300
-        self.config_surface = pygame.Surface((self.config_width, self.config_height))
+    def __init__(self, TILEMAP, font):
+        self.TILEMAP = TILEMAP
+        self.font = font
 
-    def update(self):
-        pass
+        self.config_width, self.config_height = 300, 768 // 2
+        self.config_surface = pygame.Surface((self.config_width, self.config_height))
+        self.config_surface_rect = self.config_surface.get_frect(topleft = (1024, 768 / 2))
+
+        # Images
+        self.save_btn_image = pygame.image.load('assets/save_btn.png').convert_alpha()
+        self.save_btn_rect = self.save_btn_image.get_frect(topleft = (20,self.config_height - 40))
+        self.create_btn_image = pygame.image.load('assets/create_btn.png').convert_alpha()
+        self.create_btn_rect = self.create_btn_image.get_frect(topleft = (110,self.config_height - 40))
+        self.load_btn_image = pygame.image.load('assets/load_btn.png').convert_alpha()
+        self.load_btn_rect = self.load_btn_image.get_frect(topleft = (220,self.config_height - 40))
+
+        # Config Flags
+        self.draw_once = True
+
+    def _handle_config_interactions(self, mouse_pos, mouse_just_click):
+        # Convert mouse pos to the local screen 
+        local_mouse_pos = (mouse_pos[0] - self.config_surface_rect.left, 
+                           mouse_pos[1] - self.config_surface_rect.top)
+        
+        if self.save_btn_rect.collidepoint(local_mouse_pos) and mouse_just_click[0]:
+            print('on save')
+        elif self.load_btn_rect.collidepoint(local_mouse_pos) and mouse_just_click[0]:
+            print('on load')
+        elif self.create_btn_rect.collidepoint(local_mouse_pos) and mouse_just_click[0]:
+            print('on create')
+    
+    def _config_file_mode(self):
+        txt_gap = 20
+
+        for i,data in enumerate(self.TILEMAP['metadata'].values()):
+            txt_surface = self.font.render(str(data), True, (255,255,255))
+            self.config_surface.blit(txt_surface, (20, i * txt_gap + 20))
+
+        self.config_surface.blit(self.save_btn_image, (self.save_btn_rect))
+        self.config_surface.blit(self.create_btn_image, (self.create_btn_rect))
+        self.config_surface.blit(self.load_btn_image, (self.load_btn_rect))    
 
     def render(self):
-        pass
+        pygame.draw.rect(self.config_surface, (80,79,79), (0,0, self.config_width, self.config_height), 1)
+        row_gap = 60
 
+        # Load File Mode
+        if self.draw_once:
+            self._config_file_mode()
+            self.draw_once = False
+    
+    def handle_inputs(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, mouse_on_grid, keys, keys_just_pressed):
+        self._handle_config_interactions(mouse_pos, mouse_just_click)
+
+    def get_surface(self):
+        return self.config_surface
+    
 class TileEditor_Pallete():
     def __init__(self, images, image_lookup):
         # Handle Local Instance

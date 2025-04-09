@@ -36,19 +36,19 @@ class TileImageManager():
             'background_folder_path': os.path.join('assets','tiles','background'),
             'foreground_folder_path': os.path.join('assets','tiles','foreground')
         }
-
-        self._background_layer = {}
-        self._foreground_layer = {}
-        
+     
         self.images = {
-            'background': self._background_layer,
-            'foreground': self._foreground_layer
+            'background': {},
+            'foreground': {}
         }  
         self.image_objects = {
-            'background': self._background_layer,
-            'foreground': self._foreground_layer
+            'background': {},
+            'foreground': {}
         } 
-        self.image_lookup = {}  # To be changed 
+        self.image_lookup = {
+            'background': {},
+            'foreground': {}
+        }  # To be changed 
 
         # Initialize 
         self._validate_file_paths()
@@ -74,7 +74,7 @@ class TileImageManager():
 
         # Clear File Name Path
         self.images['background'] = {}
-        self._set_image_tilenum(self.image_objects['background'])
+        self._set_image_tilenum(self.image_objects['background'],'background')
 
     def _handle_foreground_layer_images(self):
         foreground_folder_path = [folder_name for folder_name in os.listdir(self._required_file_paths['foreground_folder_path'])]
@@ -84,8 +84,9 @@ class TileImageManager():
             self.images['foreground'][folder_name] = [image_name for image_name in os.listdir(folder_path)]
             self.image_objects['foreground'][folder_name] = list(filter(None, map(lambda file: self._set_image_object(os.path.join(folder_path,file)), os.listdir(folder_path))))
         
+        # Clear File Name Path
         self.images['foreground'] = {}
-        self._set_image_tilenum(self.image_objects['foreground'])
+        self._set_image_tilenum(self.image_objects['foreground'], 'foreground')
 
     def _set_image_object(self, image_file_path, tile_size=None):
         """Uses Tile class as basis for creating an object."""
@@ -95,7 +96,7 @@ class TileImageManager():
             print(f"Error loading image '{image_file_path}': {e}")
             return None
     
-    def _set_image_tilenum(self, image_objects):
+    def _set_image_tilenum(self, image_objects,layer):
         """Assigns unique tile numbers to all tile objects"""
         tile_num = 0
         
@@ -103,12 +104,12 @@ class TileImageManager():
             for tile in category_tiles:
                 tile_num += 1
                 tile.tile_number = tile_num
-                self.image_lookup[tile_num] = tile
+                self.image_lookup[layer][tile_num] = tile
     
     # ==== OUTSIDE FUNCTIONS ==== #
-    def get_tile_by_number(self, number):
+    def get_tile_by_number(self, number, layer):
         """Retrieve a tile by its assigned number"""
-        return self.image_lookup.get(number)
+        return self.image_lookup[layer].get(number)
 
     def get_image_object(self):
         if self.image_objects is None:
@@ -285,7 +286,14 @@ class TileEditor:
         self.tile_map_keys = list(self.available_tile_maps)[self.tile_map_index]
         self.tile_map = self.TILEMAP_MANAGER.access_tilemap(self.tile_map_keys)
 
-        # Initialize screen components
+        # === SCREEN COMPONENTS === #
+        
+        # Independent Screen Component #
+        self.menu_component = TileEditor_Menu(self.TILEMAP_MANAGER)
+        self.menu_component_surface = self.menu_component.get_surface()
+        self.menu_component_rect = self.menu_component_surface.get_frect(topleft = (0,0))
+        
+        # Grouped Screen Component #
         self.grid_component = TileEditor_Grid(self.tile_map,self.TILEIMAGE_HANDLER, self.TILEMAP_MANAGER)
         self.grid_component_surface = self.grid_component.get_surface() # TODO: Fix how tilemap is passed upon this function
         self.grid_component_rect = self.grid_component_surface.get_frect(topleft = (0,0))
@@ -297,6 +305,7 @@ class TileEditor:
         self.config_component = TileEditor_Config(self.tile_map, self.font)
         self.config_component_surface = self.config_component.get_surface()
         self.config_component_rect = self.config_component_surface.get_frect(topleft = (1024, 768 / 2))
+        # === SCREEN COMPONENTS === #
 
         # Flag Variables
         self.selected_tilenum = None
@@ -305,6 +314,13 @@ class TileEditor:
         self.on_config = False
         self.load_map = False
         self.create_map = False
+
+        # Isolated Flag
+        self.on_menu = True
+
+    def _handle_menu_surface(self):
+        self.menu_component.render()
+        self.ORIGIN_DISPLAY.blit(self.menu_component_surface, self.menu_component_rect)
 
     def _handle_config_surface(self):
         self.config_component.render()
@@ -329,33 +345,36 @@ class TileEditor:
         keys = pygame.key.get_pressed()
         keys_just_pressed = pygame.key.get_just_pressed()
 
-        # === KEYBOARD === #
-        if keys_just_pressed[pygame.K_s]:
-            self.TILEMAP_MANAGER.save_tilemap(self.tile_map)
-            print('Tilemap Saved')
-        # === KEYBOARD === #
-
-        # === MOUSE === #
-        if self.pallete_component_rect.collidepoint(mouse_pos):
-            self.on_pallete = True
-            self.selected_tilenum = self.pallete_component.get_selected_tilenum()
+        if self.on_menu:
+            self.menu_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed)
         else:
-            self.on_pallete = False
+            # === KEYBOARD === #
+            if keys_just_pressed[pygame.K_s]:
+                self.TILEMAP_MANAGER.save_tilemap(self.tile_map)
+                print('Tilemap Saved')
+            # === KEYBOARD === #
 
-        if self.grid_component_rect.collidepoint(mouse_pos):
-            self.on_grid = True
-        else:
-            self.on_grid = False
-        
-        if self.config_component_rect.collidepoint(mouse_pos):
-            self.on_config = True
-        else:
-            self.on_config = False
-        # === MOUSE === #
+            # === MOUSE === #
+            if self.pallete_component_rect.collidepoint(mouse_pos):
+                self.on_pallete = True
+                self.selected_tilenum = self.pallete_component.get_selected_tilenum()
+            else:
+                self.on_pallete = False
 
-        self.config_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
-        self.pallete_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
-        self.grid_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed, self.selected_tilenum)
+            if self.grid_component_rect.collidepoint(mouse_pos):
+                self.on_grid = True
+            else:
+                self.on_grid = False
+            
+            if self.config_component_rect.collidepoint(mouse_pos):
+                self.on_config = True
+            else:
+                self.on_config = False
+            # === MOUSE === #
+
+            self.config_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
+            self.pallete_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed)
+            self.grid_component.handle_inputs(mouse_pos, mouse_click, mouse_just_click, mouse_just_released, self.on_grid, keys, keys_just_pressed, self.selected_tilenum)
 
     def run(self):
         while self.running:
@@ -367,11 +386,14 @@ class TileEditor:
 
             # Input Management Methods
             self.handle_inputs()
-
+            
             # Component Management Methods
-            self._handle_palette_surface()
-            self._handle_grid_surface()
-            self._handle_config_surface()
+            if self.on_menu:
+                self._handle_menu_surface()
+            else:
+                self._handle_palette_surface()
+                self._handle_grid_surface()
+                self._handle_config_surface()
 
             pygame.display.update()
 
@@ -615,7 +637,7 @@ class TileEditor_Grid():
             for x, tile in enumerate(tiles):
                 tile_num = int(tile)
 
-                image = self.TILE_HANDLER.get_tile_by_number(tile_num)
+                image = self.TILE_HANDLER.get_tile_by_number(tile_num, 'background')
                 scaled_image = pygame.transform.scale(image.image, (self.world_tilesize, self.world_tilesize))
                 self.world_surface.blit(scaled_image, (x * self.world_tilesize, y * self.world_tilesize))            
 
@@ -681,5 +703,78 @@ class TileEditor_Grid():
     
     def get_surface(self):
         return self.grid_surface
+
+class TileEditor_Menu():
+    def __init__(self, TILEMAP_MANAGER):
+        self.TILEMAP_MANAGER = TILEMAP_MANAGER
+
+        # Menu Properties
+        self.menu_width, self.menu_height = 1324, 768
+        self.menu_surface = pygame.Surface((self.menu_width, self.menu_height))
+        self.menu_surface_rect = self.menu_surface.get_frect(topleft = (0,0))
+        self.menu_surface_color = (153,153,153)
+
+        # Text Properties
+        self.menu_screen_font = pygame.font.Font(None, 50)
+        self.menu_font = pygame.font.Font(None, 15)
+
+        # Button Instances
+        self.BUTTON_new_map = Button(70,40,pygame.Vector2(self.menu_width / 2 - 50, self.menu_height / 2), 'New Map', (85,85,85))
+        self.BUTTON_load_map = Button(70,40,pygame.Vector2(self.menu_width / 2 + 50, self.menu_height / 2), 'Load Map', (85,85,85))
     
+    def handle_inputs(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed):
+        if self.BUTTON_new_map.button_events(mouse_pos, mouse_just_click):
+            self.handle_menu_interactions('new_map')
+        if self.BUTTON_load_map.button_events(mouse_pos, mouse_just_click):
+            self.handle_menu_interactions('load_map')
+    
+    def handle_menu_interactions(self, interaction_type):
+        if interaction_type == 'new_map':
+            pass
+        
+        if interaction_type == 'load_map':
+            print('Load Map')
+
+    def render(self):
+        pygame.draw.rect(self.menu_surface, self.menu_surface_color, self.menu_surface_rect)
+
+        info_text = self.menu_screen_font.render("No Project File",True, (255,255,255))
+        info_text_rect = info_text.get_frect(center = (self.menu_width / 2,self.menu_height / 2 - 60))
+
+        # Draw Button
+        self.BUTTON_new_map.draw(self.menu_surface)
+        self.BUTTON_load_map.draw(self.menu_surface)
+
+        # Draw Info Text
+        self.menu_surface.blit(info_text, info_text_rect)
+
+    def get_surface(self):
+        return self.menu_surface
+
+class Button():
+    def __init__(self, button_width:int = 200, button_height:int = 100, button_pos=pygame.Vector2(0,0), button_text:str = 'Button', button_color:tuple = (255,255,255)):
+        self.button_width = button_width
+        self.button_height = button_height
+        self.button_surface = pygame.Surface((self.button_width, self.button_height))
+        self.button_pos = button_pos
+        self.button_color = button_color
+        self.button_rect = self.button_surface.get_frect(center = self.button_pos)
+
+        self.button_font = pygame.font.Font(None, 20)
+        self.button_text = self.button_font.render(f'{button_text}', True, (255,255,255))
+        self.button_text_rect = self.button_text.get_frect(center = self.button_rect.center)
+
+    def draw(self, surface):
+            # Draw the button rectangle
+            pygame.draw.rect(surface, self.button_color, self.button_rect)
+            
+            # Blit the button text
+            surface.blit(self.button_text, self.button_text_rect)
+    
+    def button_events(self, mouse_pos, mouse_just_click):
+        if self.button_rect.collidepoint(mouse_pos):
+            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            if mouse_just_click[0]:
+                return True
+            
 TileEditor().run()

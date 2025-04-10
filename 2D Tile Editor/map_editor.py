@@ -721,16 +721,23 @@ class TileEditor_Menu():
         # Button Instances
         self.BUTTON_new_map = Button(70,40,pygame.Vector2(self.menu_width / 2 - 50, self.menu_height / 2), 'New Map', (85,85,85))
         self.BUTTON_load_map = Button(70,40,pygame.Vector2(self.menu_width / 2 + 50, self.menu_height / 2), 'Load Map', (85,85,85))
+        self.DIALOG_mapsettings = Dialog_MapSettings(self.menu_surface)
+
+        self.dialog_on_screen = False
     
     def handle_inputs(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed):
-        if self.BUTTON_new_map.button_events(mouse_pos, mouse_just_click):
+        if self.dialog_on_screen:
+            if not self.DIALOG_mapsettings.dialog_events(mouse_pos=mouse_pos,mouse_click=mouse_click, mouse_just_click=mouse_just_click, mouse_just_released=mouse_just_released, keys=keys, keys_just_pressed=keys_just_pressed):
+                self.dialog_on_screen = False
+        elif self.BUTTON_new_map.button_events(mouse_pos, mouse_just_click):
             self.handle_menu_interactions('new_map')
-        if self.BUTTON_load_map.button_events(mouse_pos, mouse_just_click):
+        elif self.BUTTON_load_map.button_events(mouse_pos, mouse_just_click):
             self.handle_menu_interactions('load_map')
-    
+        
     def handle_menu_interactions(self, interaction_type):
         if interaction_type == 'new_map':
-            pass
+            self.dialog_on_screen = True
+            self.DIALOG_mapsettings.show_dialog()
         
         if interaction_type == 'load_map':
             print('Load Map')
@@ -738,15 +745,19 @@ class TileEditor_Menu():
     def render(self):
         pygame.draw.rect(self.menu_surface, self.menu_surface_color, self.menu_surface_rect)
 
-        info_text = self.menu_screen_font.render("No Project File",True, (255,255,255))
-        info_text_rect = info_text.get_frect(center = (self.menu_width / 2,self.menu_height / 2 - 60))
+        if self.dialog_on_screen:
+            self.DIALOG_mapsettings.draw()
+        else:
+            info_text = self.menu_screen_font.render("No Project File",True, (255,255,255))
+            info_text_rect = info_text.get_frect(center = (self.menu_width / 2,self.menu_height / 2 - 60))
 
-        # Draw Button
-        self.BUTTON_new_map.draw(self.menu_surface)
-        self.BUTTON_load_map.draw(self.menu_surface)
-
-        # Draw Info Text
-        self.menu_surface.blit(info_text, info_text_rect)
+            # Draw Button
+            self.BUTTON_new_map.draw(self.menu_surface)
+            self.BUTTON_load_map.draw(self.menu_surface)
+            
+            # Draw Info Text
+            self.menu_surface.blit(info_text, info_text_rect)
+        
 
     def get_surface(self):
         return self.menu_surface
@@ -777,4 +788,216 @@ class Button():
             if mouse_just_click[0]:
                 return True
             
+class Dialog_MapSettings():
+    def __init__(self, draw_screen_surface, dialog_width:int=400, dialog_height:int=300):
+        # Draw Surface Properties (The reference surface)
+        self.draw_screen_surface = draw_screen_surface
+
+        # Dialog Properties
+        self.dialog_width = dialog_width
+        self.dialog_height = dialog_height
+        self.dialog_surface = pygame.Surface((self.dialog_width, self.dialog_height), pygame.SRCALPHA)
+        self.dialog_pos = pygame.Vector2(
+            (self.draw_screen_surface.get_width() - self.dialog_width) // 2,
+            (self.draw_screen_surface.get_height() - self.dialog_height) // 2
+        )
+        self.dialog_surface_rect = self.dialog_surface.get_frect(topleft=self.dialog_pos)
+
+        # Dialog Flag
+        self.active = False
+        self.result = None
+        
+        # Colors
+        self.dialog_bg_color = (169,169,169)  # Added alpha for slight transparency
+        self.title_color = (255, 255, 255)
+        self.label_color = (255, 255, 255)
+        self.input_textbox_bg_color = (85,85,85)
+        self.input_active_color = (90, 90, 120)
+        self.text_color = (255, 255, 255)
+        self.button_color = (85,85,85)
+        self.button_hover_color = (100, 100, 140)
+        
+        # Fonts
+        self.title_font = pygame.font.SysFont('Arial', 24, bold=True)
+        self.label_font = pygame.font.SysFont('Arial', 18)
+        self.input_font = pygame.font.SysFont('Arial', 16)
+        
+        # Input Text Box Properties
+        self.input_textbox = [
+            {"label": "Map Width:", 
+                                "value": "50", 
+                                "active": False, 
+                                "rect": None},
+            {"label": "Map Height:", 
+                                "value": "30", 
+                                "active": False, 
+                                "rect": None},
+            {"label": "Tile Size:", 
+                                    "value": "32", 
+                                    "active": False, 
+                                    "rect": None},
+            {"label": "World Name:", 
+                                    "value": "MyWorld", 
+                                    "active": False, 
+                                    "rect": None}
+        ]
+        self.input_textbox_width = self.dialog_width - 200
+        self.input_textbox_height = 30
+
+        # Pre Render Input Text Box
+        start_y = 60
+        spacing = 50
+        
+        for i, input_textbox in enumerate(self.input_textbox):
+            # Create rect directly with all parameters at once
+            input_textbox["rect"] = pygame.Rect(
+                150,  # x position
+                start_y + i * spacing,  # y position
+                self.input_textbox_width,
+                self.input_textbox_height
+            )
+        
+        # Pre Render Button
+        self.BUTTON_ok = Button(100,35,pygame.Vector2(self.dialog_width - 200, self.dialog_height - 30), 'OK', self.button_color)
+        self.BUTTON_cancel = Button(100,35,pygame.Vector2(self.dialog_width - 90, self.dialog_height - 30), 'CANCEL', self.button_color)
+        
+        # Track if we're currently editing text
+        self.editing_text = False
+        
+        self._render_dialogbox_elements()
+        
+    def _render_dialogbox_elements(self):
+        self.dialog_surface.fill((0, 0, 0, 0))  # Transparent
+        
+        # Draw dialog background
+        pygame.draw.rect(self.dialog_surface, self.dialog_bg_color, (0, 0, self.dialog_width, self.dialog_height))
+        
+        # Draw title
+        title = self.title_font.render("Map Settings", True, self.title_color)
+        title_rect = title.get_frect(center = (self.dialog_width // 2, 30))
+        self.dialog_surface.blit(title, title_rect)
+        
+        # Draw labels (static part)
+        for input_text_box in self.input_textbox:
+            label = self.label_font.render(input_text_box["label"], True, self.label_color)
+            self.dialog_surface.blit(label, (20, input_text_box["rect"].y + 5))
+        
+        # Draw buttons (static part)
+        self.BUTTON_ok.draw(self.dialog_surface)
+        self.BUTTON_cancel.draw(self.dialog_surface)
+    
+    def show_dialog(self):
+        """Show the dialog and reset its state"""
+        self.active = True
+        self.result = None
+        for input_text_box in self.input_textbox:
+            input_text_box["active"] = False
+        self.editing_text = False
+    
+    def dialog_events(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed):
+        if not self.active:
+            return False
+        
+        # Adjust mouse position relative to dialog
+        rel_mouse_pos = (mouse_pos[0] - self.dialog_pos.x, mouse_pos[1] - self.dialog_pos.y)
+        
+        # Check for clicks on input fields
+        if mouse_just_click[0]:
+            for input_text_box in self.input_textbox:
+                if input_text_box["rect"].collidepoint(rel_mouse_pos):
+                    # Deactivate all other inputs
+                    for other_input_text_box in self.input_textbox:
+                        other_input_text_box["active"] = False
+                    input_text_box["active"] = True
+                    self.editing_text = True
+            
+            if not any(input_textbox["rect"].collidepoint(rel_mouse_pos) for input_textbox in self.input_textbox):
+                # Clicked outside - deactivate all inputs
+                for input_text_box in self.input_textbox:
+                    input_text_box["active"] = False
+                self.editing_text = False
+        
+        # Check Button Clicks
+        if self.BUTTON_ok.button_events(rel_mouse_pos,mouse_just_click):
+            print('yes')
+            self._on_ok()
+        elif self.BUTTON_cancel.button_events(rel_mouse_pos, mouse_just_click):
+            print('no')
+            self._on_cancel()
+        
+        # Handle text input for active field
+        active_input = next((input_text_box for input_text_box in self.input_textbox if input_text_box["active"]), None)
+        if active_input:
+            if keys_just_pressed[pygame.K_BACKSPACE]:
+                active_input["value"] = active_input["value"][:-1]
+
+            # Check for enter/escape
+            if keys_just_pressed[pygame.K_RETURN]:
+                self._on_ok()
+
+            elif keys_just_pressed[pygame.K_ESCAPE]:
+                self._on_cancel()
+            
+            # Handle regular text input
+            for key in range(len(keys_just_pressed)):
+                if keys_just_pressed[key] and key not in [pygame.K_RETURN, pygame.K_ESCAPE, pygame.K_BACKSPACE]:
+                    # Get the unicode character if it's a text input key
+                    if pygame.K_a <= key <= pygame.K_z:
+                        char = chr(key)
+                        if not keys[pygame.K_LSHIFT] and not keys[pygame.K_RSHIFT]:
+                            char = char.lower()
+                        active_input["value"] += char
+                    elif key == pygame.K_SPACE:
+                        active_input["value"] += " "
+                    elif pygame.K_0 <= key <= pygame.K_9:
+                        # Numbers
+                        active_input["value"] += chr(key)
+                    elif key in [pygame.K_MINUS, pygame.K_UNDERSCORE]:
+                        active_input["value"] += "-" if not keys[pygame.K_LSHIFT] else "_"
+        return True
+    
+    def _on_ok(self):
+        try:
+            self.result = {
+                "width": int(self.input_textbox[0]["value"]),
+                "height": int(self.input_textbox[1]["value"]),
+                "tile_size": int(self.input_textbox[2]["value"]),
+                "world_name": self.input_textbox[3]["value"]
+            }
+            self.active = False
+            self.editing_text = False
+
+            # TODO: return the result values upon tileeditor class so it should be the one handling the created map with the given values.
+
+        except ValueError:
+            # Handle invalid number input
+            pass
+    
+    def _on_cancel(self):
+        self.result = None
+        self.active = False
+        self.editing_text = False
+    
+    def draw(self):
+        if not self.active:
+            return
+        
+        # Create a copy of the pre-rendered dialog
+        dialog_copy = self.dialog_surface.copy()
+        
+        # Draw dynamic elements (input boxes and text)
+        for input_textbox in self.input_textbox:
+            # Draw input box
+            color = self.input_active_color if input_textbox["active"] else self.input_textbox_bg_color
+            pygame.draw.rect(dialog_copy, color, input_textbox["rect"])
+            pygame.draw.rect(dialog_copy, (120, 120, 150), input_textbox["rect"], 1)
+            
+            # Draw input text
+            inputlabel_text = self.input_font.render(input_textbox["value"], True, self.text_color)
+            inputlabel_text_rect = inputlabel_text.get_rect(x=input_textbox["rect"].x + 5, centery=input_textbox["rect"].centery)
+            dialog_copy.blit(inputlabel_text, inputlabel_text_rect)
+        
+        # Blit the dialog to the screen
+        self.draw_screen_surface.blit(dialog_copy, self.dialog_pos)
+        
 TileEditor().run()

@@ -1,261 +1,8 @@
-import pygame, sys, math, json, csv, os
-from os.path import join
+# Import Managers
+from TileImageManager import *
+from TileMapManager import *
+from settings import *
 
-class Tile:
-    def __init__(self, image_file_path, x, y, size=None, tile_number=None, display=None):
-        # Load the tile image
-        self.image = pygame.image.load(image_file_path).convert_alpha()
-        
-        # Use the provided size or default to 64
-        self.size = size if size is not None else 64
-        
-        # Scale the image once during initialization
-        self.image = pygame.transform.scale(self.image, (self.size, self.size))
-        self.display = display
-        
-        # Create a rect for the tile and center it at (x, y)
-        self.rect = self.image.get_frect(topleft=(x, y))
-        self.tile_number = tile_number
-        self.is_collision = False
-        self.image_name = os.path.basename(image_file_path)
-
-    def draw(self, pos=None, display=None):
-        if pos is None:
-            pos = self.rect
-        
-        if display == None:
-            display = pygame.Surface((0,0))
-            
-        # No need to rescale every time - only blit the image
-        display.blit(self.image, pos)
-
-class TileImageManager():
-    def __init__(self):
-        self._required_file_paths = {
-            'base_path': os.path.join('assets', 'tiles'),
-            'background_folder_path': os.path.join('assets','tiles','background'),
-            'foreground_folder_path': os.path.join('assets','tiles','foreground')
-        }
-     
-        self.images = {
-            'background': {},
-            'foreground': {}
-        }  
-        self.image_objects = {
-            'background': {},
-            'foreground': {}
-        } 
-        self.image_lookup = {
-            'background': {},
-            'foreground': {}
-        }  # To be changed 
-
-        # Initialize 
-        self._validate_file_paths()
-        self._handle_background_layer_images()
-        self._handle_foreground_layer_images()
-
-    def _validate_file_paths(self):
-        # Validates Required Folder/File Paths
-        if not os.path.exists(self._required_file_paths['base_path']):
-            os.makedirs(self._required_file_paths['base_path'])
-        elif not os.path.exists(self._required_file_paths['background_folder_path']):
-            os.makedirs(self._required_file_paths['background_folder_path'])
-        elif not os.path.exists(self._required_file_paths['foreground_folder_path']):
-            os.makedirs(self._required_file_paths['foreground_folder_path'])
-    
-    def _handle_background_layer_images(self):
-        background_folder_path = [folder_name for folder_name in os.listdir(self._required_file_paths['background_folder_path'])]
-
-        for folder_name in background_folder_path:
-            folder_path = os.path.join(self._required_file_paths['background_folder_path'], folder_name)
-            self.images['background'][folder_name] = [image_name for image_name in os.listdir(folder_path)]
-            self.image_objects['background'][folder_name] = list(filter(None, map(lambda file: self._set_image_object(os.path.join(folder_path,file)), os.listdir(folder_path))))
-
-        # Clear File Name Path
-        self.images['background'] = {}
-        self._set_image_tilenum(self.image_objects['background'],'background')
-
-    def _handle_foreground_layer_images(self):
-        foreground_folder_path = [folder_name for folder_name in os.listdir(self._required_file_paths['foreground_folder_path'])]
-
-        for folder_name in foreground_folder_path:
-            folder_path = os.path.join(self._required_file_paths['foreground_folder_path'], folder_name)
-            self.images['foreground'][folder_name] = [image_name for image_name in os.listdir(folder_path)]
-            self.image_objects['foreground'][folder_name] = list(filter(None, map(lambda file: self._set_image_object(os.path.join(folder_path,file)), os.listdir(folder_path))))
-        
-        # Clear File Name Path
-        self.images['foreground'] = {}
-        self._set_image_tilenum(self.image_objects['foreground'], 'foreground')
-
-    def _set_image_object(self, image_file_path, tile_size=None):
-        """Uses Tile class as basis for creating an object."""
-        try:
-            return Tile(image_file_path, 0, 0, tile_size)
-        except Exception as e:
-            print(f"Error loading image '{image_file_path}': {e}")
-            return None
-    
-    def _set_image_tilenum(self, image_objects,layer):
-        """Assigns unique tile numbers to all tile objects"""
-        tile_num = 0
-        
-        for category_tiles in image_objects.values():
-            for tile in category_tiles:
-                tile_num += 1
-                tile.tile_number = tile_num
-                self.image_lookup[layer][tile_num] = tile
-    
-    # ==== OUTSIDE FUNCTIONS ==== #
-    def get_tile_by_number(self, number, layer):
-        """Retrieve a tile by its assigned number"""
-        return self.image_lookup[layer].get(number)
-
-    def get_image_object(self):
-        if self.image_objects is None:
-            raise ReferenceError("Image Object is empty. Might be error on handling process.")
-        return self.image_objects
-
-    def get_image_lookup(self):
-        if self.image_lookup is None:
-            raise ReferenceError("Image Lookup is empty. Might be error on handling process.")
-        return self.image_lookup
- 
-class TileMapManager():
-    def __init__(self):
-        self._root_path = 'assets/maps' 
-        self._accessed_tilemap = ''
-        self._cache_tilemaps = {} # {map_name: map_full_path}
-        self._map_names = self._cache_tilemaps.keys()
-
-        # Intialize Tile Map Manager
-        self._init_tilemanager()
-    
-    def _handle_mapname_duplicate(self, map_name):
-        base_name = map_name
-        name_counter = 1
-
-        while map_name in self._cache_tilemaps:
-            if name_counter >= 3:
-                break
-            map_name = f'{base_name}_{name_counter}'
-            
-            name_counter += 1
-
-        return map_name
-    
-    def _init_tilemanager(self):
-        tilemaps_path = [map_name for map_name in os.listdir(self._root_path) if map_name.endswith('.csv')]
-
-        if tilemaps_path:
-            # First Item Only
-            if len(tilemaps_path) > 1:
-                map = tilemaps_path[0]
-
-            map = tilemaps_path
-
-            # Load Cache Data
-            self._cache_tilemaps = {
-                mapname: join(self._root_path, mapname)
-                for mapname in map
-            }
-        else:
-            self.create_tilemap()
-            
-    def load_tilemap(self, file_path):
-        tilemap = {
-            'metadata': {
-                'world_width': None,
-                'world_height':None,
-                'world_tilesize': None,
-                'world_name': None
-            },
-            'map': []
-        }
-
-        # If base check == true, open file
-        with open(file_path) as file:
-            csv_reader = csv.reader(file)
-            parsing_metadata = False
-
-            for row in csv_reader:
-                if not row or row[0].startswith("#"):  # Skip empty lines & comments
-                    if row and row[0] == "#metadata":
-                        parsing_metadata = True  # Start reading metadata
-                    elif row and row[0] == "#tilemap":
-                        parsing_metadata = False  # Stop reading metadata
-                    continue
-
-                if parsing_metadata:
-                    key, value = row
-                    tilemap['metadata'][key] = int(value) if value.isdigit() else value # Store metadata
-                else:
-                    tilemap['map'].append([int(x) for x in row])  # Store tilemap
-
-        return tilemap
-
-    def save_tilemap(self,modified_tile_map):
-        tile_map = modified_tile_map
-
-        with open(self._cache_tilemaps.get(self._accessed_tilemap), 'w', newline='') as file:
-            writer = csv.writer(file)
-            
-            # Write metadata
-            writer.writerow(["#metadata"])
-            for key, value in tile_map['metadata'].items():
-                writer.writerow([key, value])
-            writer.writerow([])  # Empty row to separate metadata from tilemap
-            
-            # Write tilemap data
-            writer.writerow(["#tilemap"])
-            for row in tile_map['map']:
-                writer.writerow(row)
-        
-        return True
-    
-    def create_tilemap(self, width:int=None, height:int=None, tilesize:int=None, map_name:str=None):
-        default_width = width if width else 1024
-        default_height = height if height else 768
-        default_tilesize = tilesize if tilesize else 32
-        default_name = map_name if map_name else 'untitled_map'
-        default_tile_map = [[1 for _ in range(default_width // default_tilesize)] for _ in range(default_height // default_tilesize)]
-
-        world_name = self._handle_mapname_duplicate(default_name)
-        full_path_map = join(self._root_path, f'{world_name}.csv')
-
-        with open(full_path_map, 'w', newline='') as file:
-            meta_data_header, tilemap_header = '#metadata', '#tilemap'
-            csv_writer = csv.writer(file)
-
-            # CREATE METADATA HEADER
-            csv_writer.writerow([meta_data_header])
-            meta_data = {
-                    'world_width': default_width,
-                    'world_height':default_height,
-                    'world_tilesize': default_tilesize,
-                    'world_name': world_name
-                }
-            
-            for key, value in meta_data.items():
-                csv_writer.writerow([key, value])
-            
-            # Create empty space for seperation
-            csv_writer.writerow([])
-
-            # CREATE TILEMAP HEADER
-            csv_writer.writerow([tilemap_header])
-            for row in default_tile_map:
-                csv_writer.writerow(row)
-        
-        self._cache_tilemaps[world_name] = full_path_map # Updates and Stores, FILE NAME AND PATH ONLY (not loaded) lazy loading
-
-    def access_tilemap(self, map_name):
-        if map_name in self._cache_tilemaps:
-           self._accessed_tilemap = map_name
-           return self.load_tilemap(self._cache_tilemaps.get(map_name))
-        else:
-            raise FileNotFoundError
-             
 class TileEditor:
     def __init__(self):
         # Initialize Pygame
@@ -325,7 +72,7 @@ class TileEditor:
 
     def _handle_menu_surface(self):
         # If Processed get tilemap
-        if self.menu_component.DIALOG_PROCESS:
+        if self.menu_component.DIALOG_PROCESSED:
             self.TILEMAP = self.menu_component.get_created_map()
             self._reinitialize_components()
 
@@ -742,7 +489,7 @@ class TileEditor_Menu():
         self.DIALOG_ONSCREEN = True
         self.DIALOG_STATE = True # True on first initialization
         self.DIALOG_INPUT_RESULT = None # Result Input from the Dialog
-        self.DIALOG_PROCESS = False
+        self.DIALOG_PROCESSED = False
     
     def _handle_menu_interactions(self, interaction_type):
         if interaction_type == 'new_map':
@@ -763,14 +510,14 @@ class TileEditor_Menu():
          self.TILEMAP = self.TILEMAP_MANAGER.access_tilemap(world_map)
 
     def _handle_dialog_updates(self):
-        self.DIALOG_PROCESS = self.DIALOG_mapsettings.DIALOG_PROCESSED
+        self.DIALOG_PROCESSED = self.DIALOG_mapsettings.DIALOG_PROCESSED
         self.DIALOG_INPUT_RESULT = self.DIALOG_mapsettings.DIALOG_INPUT_RESULT
     
     def handle_inputs(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed):
         if self.DIALOG_ONSCREEN:
             if not self.DIALOG_mapsettings.dialog_events(mouse_pos=mouse_pos,mouse_click=mouse_click, mouse_just_click=mouse_just_click, mouse_just_released=mouse_just_released, keys=keys, keys_just_pressed=keys_just_pressed):
                 self.DIALOG_ONSCREEN = False
-            if self.DIALOG_PROCESS:
+            if self.DIALOG_PROCESSED:
                 self._handle_map_creation()
                 # Reset State and DIALOG state
                 self.DIALOG_ONSCREEN = False
@@ -835,6 +582,13 @@ class Dialog_MapSettings():
     def __init__(self,TILEMAP_MANAGER, ORIGIN_SCREEN_SURFACE, dialog_width:int=400, dialog_height:int=300):
         # Draw Surface Properties (The reference surface)
         self.ORIGIN_SCREEN_SURFACE = ORIGIN_SCREEN_SURFACE
+        self.TILEMAP_MANAGER = TILEMAP_MANAGER
+        # Get tilemap dimensions for proper referencing
+        self.TILEMAP_INDEX = 1
+        self.TILESIZE_INDEX = 0
+        self.TILEMAP_DIMENSION = self.TILEMAP_MANAGER.tilemap_dimension
+        self.TILEMAP_DIMENSION_KEYS = list(self.TILEMAP_DIMENSION.keys())[self.TILEMAP_INDEX]
+
 
         # Dialog Properties
         self.dialog_width = dialog_width
@@ -857,22 +611,22 @@ class Dialog_MapSettings():
         self.button_hover_color = (100, 100, 140)
         
         # Fonts
-        self.title_font = pygame.font.SysFont('Arial', 24, bold=True)
-        self.label_font = pygame.font.SysFont('Arial', 18)
+        self.dialog_title_font = pygame.font.SysFont('Arial', 24, bold=True)
+        self.textbox_label_font = pygame.font.SysFont('Arial', 18)
         self.input_font = pygame.font.SysFont('Arial', 16)
         
         # Input Text Box Properties
         self.input_textbox = [
-            {"label": "Map Width:", 
-                                "value": "1024", 
+            {"label": "Map Dimension:", 
+                                "value": f"{self.TILEMAP_DIMENSION[self.TILEMAP_DIMENSION_KEYS]['width']}", 
                                 "active": False, 
                                 "rect": None},
-            {"label": "Map Height:", 
-                                "value": "768", 
+            {"label": "", 
+                                "value": f"{self.TILEMAP_DIMENSION[self.TILEMAP_DIMENSION_KEYS]['height']}", 
                                 "active": False, 
                                 "rect": None},
             {"label": "Tile Size:", 
-                                    "value": "32", 
+                                    "value": f"{self.TILEMAP_DIMENSION[self.TILEMAP_DIMENSION_KEYS]['tilesize'][self.TILESIZE_INDEX]}", 
                                     "active": False, 
                                     "rect": None},
             {"label": "World Name:", 
@@ -880,90 +634,82 @@ class Dialog_MapSettings():
                                     "active": False, 
                                     "rect": None}
         ]
-        self.input_textbox_width = self.dialog_width - 200
+        self.input_textbox_width = self.dialog_width - 190
         self.input_textbox_height = 30
-
-        # Pre Render Input Text Box
-        start_y = 60
-        spacing = 50
-        
-        for i, input_textbox in enumerate(self.input_textbox):
-            # Create rect directly with all parameters at once
-            input_textbox["rect"] = pygame.Rect(
-                150,  # x position
-                start_y + i * spacing,  # y position
-                self.input_textbox_width,
-                self.input_textbox_height
-            )
-        
+            
         # Dialog States
         self.DIALOG_ACTIVE = False
         self.DIALOG_INPUT_RESULT = {}
         self.DIALOG_PROCESSED = False
         
-        # Pre Render Button
+        # Pre render Button
         self.BUTTON_ok = Button(100,35,pygame.Vector2(self.dialog_width - 200, self.dialog_height - 30), 'OK', self.button_color)
         self.BUTTON_cancel = Button(100,35,pygame.Vector2(self.dialog_width - 90, self.dialog_height - 30), 'CANCEL', self.button_color)
         
         # Track if we're currently editing text
         self.editing_text = False
 
+        self._cache_input_textbox()
         self._cache_dialogbox_elements()
+    
+    def _cache_input_textbox(self):
+        # Initialize with the correct structure
+        self.input_textbox = [
+            {"label": "Map Dimension:", 
+            "value": f"{self.TILEMAP_DIMENSION[self.TILEMAP_DIMENSION_KEYS]['width']}", 
+            "active": False, 
+            "rect": None},
+            {"label": "", 
+            "value": f"{self.TILEMAP_DIMENSION[self.TILEMAP_DIMENSION_KEYS]['height']}", 
+            "active": False, 
+            "rect": None},
+            {"label": "Tile Size:", 
+            "value": f"{self.TILEMAP_DIMENSION[self.TILEMAP_DIMENSION_KEYS]['tilesize'][self.TILESIZE_INDEX]}", 
+            "active": False, 
+            "rect": None},
+            {"label": "World Name:", 
+            "value": "MyWorld", 
+            "active": False, 
+            "rect": None}
+        ]
+        # Manual Placings
+        rect_placement = [
+            pygame.Rect(150, 60, self.input_textbox_width - 100, self.input_textbox_height),
+            pygame.Rect(250, 60, self.input_textbox_width - 100, self.input_textbox_height),
+            pygame.Rect(150, 120, self.input_textbox_width, self.input_textbox_height),
+            pygame.Rect(150, 180, self.input_textbox_width, self.input_textbox_height),
+        ]
         
+        # Iterate to the list then assign it to their rect
+        for i, input_textbox in enumerate(self.input_textbox):
+            input_textbox["rect"] = rect_placement[i]
+
     def _cache_dialogbox_elements(self):
-        self.dialog_surface.fill((0, 0, 0, 0))  # Transparent
-        
         # Draw dialog background
         pygame.draw.rect(self.dialog_surface, self.dialog_bg_color, (0, 0, self.dialog_width, self.dialog_height))
         
         # Draw title
-        title = self.title_font.render("Map Settings", True, self.title_color)
-        title_rect = title.get_frect(center = (self.dialog_width // 2, 30))
-        self.dialog_surface.blit(title, title_rect)
+        dialog_title = self.dialog_title_font.render("Map Settings", True, self.title_color)
+        dialog_title_rect = dialog_title.get_frect(center = (self.dialog_width // 2, 30))
+        self.dialog_surface.blit(dialog_title, dialog_title_rect) # Render Dialog Title
         
-        # Draw labels (static part)
+        # Draw input textbox label (static part)
         for input_text_box in self.input_textbox:
-            label = self.label_font.render(input_text_box["label"], True, self.label_color)
+            label = self.textbox_label_font.render(input_text_box["label"], True, self.label_color)
             self.dialog_surface.blit(label, (20, input_text_box["rect"].y + 5))
         
         # Draw buttons (static part)
         self.BUTTON_ok.draw(self.dialog_surface)
         self.BUTTON_cancel.draw(self.dialog_surface)
-    
-    def show_dialog(self):
-        self.DIALOG_ACTIVE = True
-        self.DIALOG_INPUT_RESULT = {}
-        for input_text_box in self.input_textbox:
-            input_text_box["active"] = False
-        self.editing_text = False
-    
-    def dialog_events(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed):
-        if not self.DIALOG_ACTIVE:
-            return False
-        
-        # Adjust mouse position relative to dialog
-        rel_mouse_pos = (mouse_pos[0] - self.dialog_pos.x, mouse_pos[1] - self.dialog_pos.y)
-
-        # Check Button Clicks
-        if self.BUTTON_ok.button_events(rel_mouse_pos,mouse_just_click):
-            self._on_ok()
-        elif self.BUTTON_cancel.button_events(rel_mouse_pos, mouse_just_click):
-            self._on_cancel()
-        
-        # Handle Active State of Textbox Fields
-        self._handle_textbox_state(mouse_just_click, rel_mouse_pos)
-        
-        # Handle Text Inputs
-        self._handle_text_input(keys, keys_just_pressed)
-
-        return True
 
     def _handle_textbox_state(self, mouse_just_click, rel_mouse_pos):
         # Check for clicks on input fields
         if mouse_just_click[0]:
             clicked_textbox = next((textbox for textbox in self.input_textbox
                                 if textbox["rect"].collidepoint(rel_mouse_pos)), None)
-            
+        
+
+                
             if clicked_textbox:
                 # Deactive All Textboxes
                 for textbox in self.input_textbox:
@@ -971,6 +717,14 @@ class Dialog_MapSettings():
                 # Active Clicked TextBox
                 clicked_textbox["active"] = True
                 self.editing_text = True
+                if clicked_textbox['label'] == 'Tile Size:':
+                    self.TILESIZE_INDEX = (self.TILESIZE_INDEX + 1) % len(self.TILEMAP_DIMENSION[self.TILEMAP_DIMENSION_KEYS]['tilesize'])
+                    self._cache_input_textbox()
+                if clicked_textbox['label'] == 'Map Dimension:' or clicked_textbox['label'] == '':
+                    self.TILEMAP_INDEX = (self.TILEMAP_INDEX + 1) % len(self.TILEMAP_DIMENSION)
+                    self.TILEMAP_DIMENSION_KEYS = list(self.TILEMAP_DIMENSION.keys())[self.TILEMAP_INDEX]
+                    self.TILESIZE_INDEX = 0
+                    self._cache_input_textbox()
             else:
                 # Clicked outside - deactivate all
                 for textbox in self.input_textbox:
@@ -1045,5 +799,33 @@ class Dialog_MapSettings():
         
         # Blit the dialog to the screen
         self.ORIGIN_SCREEN_SURFACE.blit(dialog_copy, self.dialog_pos)
+    
+    def show_dialog(self):
+        self.DIALOG_ACTIVE = True
+        self.DIALOG_INPUT_RESULT = {}
+        for input_text_box in self.input_textbox:
+            input_text_box["active"] = False
+        self.editing_text = False
+    
+    def dialog_events(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed):
+        if not self.DIALOG_ACTIVE:
+            return False
+        
+        # Adjust mouse position relative to dialog
+        rel_mouse_pos = (mouse_pos[0] - self.dialog_pos.x, mouse_pos[1] - self.dialog_pos.y)
+
+        # Check Button Clicks
+        if self.BUTTON_ok.button_events(rel_mouse_pos,mouse_just_click):
+            self._on_ok()
+        elif self.BUTTON_cancel.button_events(rel_mouse_pos, mouse_just_click):
+            self._on_cancel()
+        
+        # Handle Active State of Textbox Fields
+        self._handle_textbox_state(mouse_just_click, rel_mouse_pos)
+        
+        # Handle Text Inputs
+        self._handle_text_input(keys, keys_just_pressed)
+
+        return True
         
 TileEditor().run()

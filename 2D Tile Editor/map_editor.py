@@ -72,7 +72,7 @@ class TileEditor:
 
     def _handle_menu_surface(self):
         # If Processed get tilemap
-        if self.menu_component.DIALOG_PROCESSED:
+        if self.menu_component.DIALOG_MAP_CREATED:
             self.TILEMAP = self.menu_component.get_created_map()
             self._reinitialize_components()
 
@@ -204,11 +204,12 @@ class TileEditor_Config():
         self.config_surface.blit(self.load_btn_image, (self.load_btn_rect))    
 
     def render(self):
-        pygame.draw.rect(self.config_surface, (80,79,79), (0,0, self.config_width, self.config_height), 1)
+        pygame.draw.rect(self.config_surface, (0,0,0), (0,0, self.config_width, self.config_height), 1)
         row_gap = 60
 
         # Load File Mode
         if self.draw_once:
+            pygame.draw.rect(self.config_surface, (169,169,169), (0,0, self.config_width, self.config_height))
             self._config_file_mode()
             self.draw_once = False
     
@@ -245,8 +246,8 @@ class TileEditor_Pallete():
                 self.selected_tilenum = image.tile_number
 
     def render(self):
-        pygame.draw.rect(self.palette_surface, (0,0,0), (0, 0, self.palette_width, self.palette_height))
-        pygame.draw.rect(self.palette_surface, (80,79,79), (0, 0, self.palette_width, self.palette_height), 1)
+        pygame.draw.rect(self.palette_surface, (169,169,169), (0, 0, self.palette_width, self.palette_height))
+        pygame.draw.rect(self.palette_surface, (0,0,0), (0, 0, self.palette_width, self.palette_height), 1)
         
         # Calculate total number of tiles and rows needed
         total_tiles = len(self.images[self.current_category])
@@ -425,7 +426,7 @@ class TileEditor_Grid():
         self.camera.y = self.start_camera_pos_y + delta_change_y
         
     def render(self):
-        self.grid_surface.fill((0,0,0))
+        self.grid_surface.fill((169,169,169))
 
         self._draw_world_tile()
         self._draw_world_grid()
@@ -483,41 +484,47 @@ class TileEditor_Menu():
         # Button Instances
         self.BUTTON_new_map = Button(70,40,pygame.Vector2(self.menu_width / 2 - 50, self.menu_height / 2), 'New Map', (85,85,85))
         self.BUTTON_load_map = Button(70,40,pygame.Vector2(self.menu_width / 2 + 50, self.menu_height / 2), 'Load Map', (85,85,85))
-        self.DIALOG_mapsettings = Dialog_MapSettings(self.TILEMAP_MANAGER, self.menu_surface)
+        self.DIALOG_mapconfig = Dialog_NewMap(self.TILEMAP_MANAGER, self.menu_surface)
 
         # Update States
         self.DIALOG_ONSCREEN = True
         self.DIALOG_STATE = True # True on first initialization
         self.DIALOG_INPUT_RESULT = None # Result Input from the Dialog
-        self.DIALOG_PROCESSED = False
+        self.DIALOG_MAP_CREATED = False
     
     def _handle_menu_interactions(self, interaction_type):
         if interaction_type == 'new_map':
-            self.DIALOG_ONSCREEN = True
-            self.DIALOG_mapsettings.show_dialog()
+            self._handle_new_map()
         
         if interaction_type == 'load_map':
-            print('Load Map')
-    
+            self._handle_load_map()
+
+    def _handle_new_map(self):
+        self.DIALOG_ONSCREEN = True
+        self.DIALOG_mapconfig.show_dialog()
+
+    def _handle_load_map(self):
+        pass
+
     def _handle_map_creation(self):
          # Unpack Results
-         width = self.DIALOG_INPUT_RESULT['width']
-         height = self.DIALOG_INPUT_RESULT['height']
-         tilesize = self.DIALOG_INPUT_RESULT['tile_size']
-         world_map = self.DIALOG_INPUT_RESULT['world_name']
+         map_width = self.DIALOG_INPUT_RESULT['width']
+         map_height = self.DIALOG_INPUT_RESULT['height']
+         map_tilesize = self.DIALOG_INPUT_RESULT['tile_size']
+         map_name = self.DIALOG_INPUT_RESULT['world_name']
 
-         self.TILEMAP_MANAGER.create_tilemap(width,height,tilesize,world_map)
-         self.TILEMAP = self.TILEMAP_MANAGER.access_tilemap(world_map)
+         self.TILEMAP_MANAGER.create_tilemap(map_width,map_height,map_tilesize,map_name)
+         self.TILEMAP = self.TILEMAP_MANAGER.access_tilemap(map_name)
 
     def _handle_dialog_updates(self):
-        self.DIALOG_PROCESSED = self.DIALOG_mapsettings.DIALOG_PROCESSED
-        self.DIALOG_INPUT_RESULT = self.DIALOG_mapsettings.DIALOG_INPUT_RESULT
+        self.DIALOG_MAP_CREATED = self.DIALOG_mapconfig.DIALOG_INPUT_PROCESSED
+        self.DIALOG_INPUT_RESULT = self.DIALOG_mapconfig.DIALOG_INPUT_RESULT
     
     def handle_inputs(self, mouse_pos, mouse_click, mouse_just_click, mouse_just_released, keys, keys_just_pressed):
         if self.DIALOG_ONSCREEN:
-            if not self.DIALOG_mapsettings.dialog_events(mouse_pos=mouse_pos,mouse_click=mouse_click, mouse_just_click=mouse_just_click, mouse_just_released=mouse_just_released, keys=keys, keys_just_pressed=keys_just_pressed):
+            if not self.DIALOG_mapconfig.dialog_events(mouse_pos=mouse_pos,mouse_click=mouse_click, mouse_just_click=mouse_just_click, mouse_just_released=mouse_just_released, keys=keys, keys_just_pressed=keys_just_pressed):
                 self.DIALOG_ONSCREEN = False
-            if self.DIALOG_PROCESSED:
+            if self.DIALOG_MAP_CREATED:
                 self._handle_map_creation()
                 # Reset State and DIALOG state
                 self.DIALOG_ONSCREEN = False
@@ -534,7 +541,7 @@ class TileEditor_Menu():
         self._handle_dialog_updates()
 
         if self.DIALOG_ONSCREEN:
-            self.DIALOG_mapsettings.draw()
+            self.DIALOG_mapconfig.draw()
         else:
             info_text = self.menu_screen_font.render("No Project File",True, (255,255,255))
             info_text_rect = info_text.get_frect(center = (self.menu_width / 2,self.menu_height / 2 - 60))
@@ -577,8 +584,8 @@ class Button():
             pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
             if mouse_just_click[0]:
                 return True
-            
-class Dialog_MapSettings():
+        
+class Dialog_NewMap():
     def __init__(self,TILEMAP_MANAGER, ORIGIN_SCREEN_SURFACE, dialog_width:int=400, dialog_height:int=300):
         # Draw Surface Properties (The reference surface)
         self.ORIGIN_SCREEN_SURFACE = ORIGIN_SCREEN_SURFACE
@@ -588,7 +595,6 @@ class Dialog_MapSettings():
         self.TILESIZE_INDEX = 0
         self.TILEMAP_DIMENSION = self.TILEMAP_MANAGER.tilemap_dimension
         self.TILEMAP_DIMENSION_KEYS = list(self.TILEMAP_DIMENSION.keys())[self.TILEMAP_INDEX]
-
 
         # Dialog Properties
         self.dialog_width = dialog_width
@@ -640,7 +646,7 @@ class Dialog_MapSettings():
         # Dialog States
         self.DIALOG_ACTIVE = False
         self.DIALOG_INPUT_RESULT = {}
-        self.DIALOG_PROCESSED = False
+        self.DIALOG_INPUT_PROCESSED = False
         
         # Pre render Button
         self.BUTTON_ok = Button(100,35,pygame.Vector2(self.dialog_width - 200, self.dialog_height - 30), 'OK', self.button_color)
@@ -707,8 +713,6 @@ class Dialog_MapSettings():
         if mouse_just_click[0]:
             clicked_textbox = next((textbox for textbox in self.input_textbox
                                 if textbox["rect"].collidepoint(rel_mouse_pos)), None)
-        
-
                 
             if clicked_textbox:
                 # Deactive All Textboxes
@@ -765,7 +769,7 @@ class Dialog_MapSettings():
                 "tile_size": int(self.input_textbox[2]["value"]),
                 "world_name": self.input_textbox[3]["value"]
             }
-            self.DIALOG_PROCESSED = True
+            self.DIALOG_INPUT_PROCESSED = True
             self.DIALOG_ACTIVE = False
             self.editing_text = False
 
@@ -827,5 +831,6 @@ class Dialog_MapSettings():
         self._handle_text_input(keys, keys_just_pressed)
 
         return True
-        
+
+
 TileEditor().run()

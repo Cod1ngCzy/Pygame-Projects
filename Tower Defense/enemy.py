@@ -13,7 +13,7 @@ class Enemy(pygame.sprite.Sprite):
         self.image = self.ENEMY_walk_frame[self.animation_index]
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_frect(center = (self.position))
-        self.speed = 500
+        self.speed = 100
 
     def _get_image_tileset(self, path_to_image):
         sprite_image_paths = os.listdir(path_to_image)
@@ -30,7 +30,7 @@ class Enemy(pygame.sprite.Sprite):
         if int(self.animation_index) >= 2 and int(self.animation_index) <= 4:
             self.position.x += self.speed * delta_time
 
-            self.rect.x = self.position.x
+            self.rect.centerx = self.position.x
 
     
     def update(self, delta_time, screen_surface):

@@ -26,6 +26,13 @@ class Game():
         self.ENEMY_SPRITE_GROUP = pygame.sprite.Group()
         self.ENEMY_SPRITE_GROUP.add(self.ENEMY_slime)
 
+        # Grid Properties
+        self.GRID_TILESIZE = 64
+        self.GRID_WIDTH = self._SCREEN_WIDTH // self.GRID_TILESIZE
+        self.GRID_HEIGHT = self._SCREEN_HEIGHT // self.GRID_TILESIZE
+        self.TILEMAP = [[0 for _ in range(self.GRID_WIDTH)] for _ in range(self.GRID_HEIGHT)]
+        self.TILEMAP_INIT = False
+
     def _handle_game_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -33,6 +40,12 @@ class Game():
     
     def _handle_game_timer(self):
         pass
+
+    def _handle_game_grid(self):
+        for col in range(len(self.TILEMAP)):
+            for row in range(len(self.TILEMAP[0])):
+                print(col, row)
+                pygame.draw.rect(self._SCREEN_SURFACE, (255,255,255), (row * self.GRID_TILESIZE, col * self.GRID_TILESIZE, self.GRID_TILESIZE, self.GRID_TILESIZE), 1)
 
     def run(self):
         while self._GAME_RUN:
@@ -44,6 +57,7 @@ class Game():
 
             # Clear the screen first
             self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
+            #self._handle_game_grid()
 
             self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENEMY_slime)
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)

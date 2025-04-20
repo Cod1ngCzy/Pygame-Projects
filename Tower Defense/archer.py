@@ -26,7 +26,7 @@ class ArcherTower(pygame.sprite.Sprite):
         self.TOWER_position = pygame.Vector2(1024 // 2,768 // 2)
         self.rect = self.image.get_frect(center = self.TOWER_position)
         # Tower Attack Properties
-        self.TOWER_attack_radius = 150
+        self.TOWER_attack_radius = 250
         self.TOWER_attack_radius_surface = pygame.Surface((self.TOWER_attack_radius*2, self.TOWER_attack_radius*2), pygame.SRCALPHA)
         self.TOWER_attack_radius_rect = self.TOWER_attack_radius_surface.get_frect(center = (self.rect.center))
         self.TOWER_attack_radius_color = (255,255,255,100)
@@ -80,7 +80,6 @@ class ArcherTower(pygame.sprite.Sprite):
             if self.ARROW_OBJECT:
                 if self.ARROW_OBJECT.IS_COLLIDED:
                     self.ARROW_OBJECT.kill()
-                    entity_object.health = entity_object.health - self.ARROW_OBJECT.damage
                     self.ARROW_OBJECT = None
 
             self.ARROW_SPRITES.update(delta_time, entity_object, entity_position)
@@ -128,13 +127,13 @@ class Arrow(pygame.sprite.Sprite):
     def handle_arrow_logic(self, delta_time, entity_object, entity_position):
         if entity_object:
             # Calculate Direction for Aiming
-            arrow_position = pygame.Vector2(self.rect.center)
+            arrow_position = pygame.Vector2(self.rect.midtop)
             entity_position = entity_position
             arrow_direction = (entity_position - arrow_position).normalize()
 
             # Rotate Arrow
-            arrow_angle = math.degrees(math.atan2(-arrow_direction.y, arrow_direction.x)) - 90
-            self.image = pygame.transform.rotate(self.image_original, arrow_angle)
+            arrow_rotation_angle = math.degrees(math.atan2(-arrow_direction.y, arrow_direction.x)) - 90
+            self.image = pygame.transform.rotate(self.image_original, arrow_rotation_angle)
             self.mask = pygame.mask.from_surface(self.image)
 
             # Handle Arrow Logic (Movement & Collision)
@@ -150,7 +149,9 @@ class Arrow(pygame.sprite.Sprite):
             offset_x = entity_object.rect.x - self.rect.x
             offset_y = entity_object.rect.y - self.rect.y
             overlap_point = self.mask.overlap(entity_object.mask, (offset_x, offset_y))
+
             if overlap_point:
+                entity_object.take_damage(self.damage)
                 self.kill()
                 self.IS_COLLIDED = True
             

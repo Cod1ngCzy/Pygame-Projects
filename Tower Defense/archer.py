@@ -13,7 +13,7 @@ class ArcherTower(pygame.sprite.Sprite):
             'idle6': self._get_image(os.path.join('assets', 'ArcherTower', 'IdleAnimation', 'idle6')),
         }
         self.TOWER_idle_keys = self.TOWER_idle_frame.keys()
-        self.TOWER_upgrade_state = 0
+        self.TOWER_upgrade_state = 2
         self.TOWER_idle_category = list(self.TOWER_idle_keys)[self.TOWER_upgrade_state]
 
         # Animation Properties
@@ -26,7 +26,7 @@ class ArcherTower(pygame.sprite.Sprite):
         self.TOWER_position = pygame.Vector2(1024 // 2,768 // 2)
         self.rect = self.image.get_frect(center = self.TOWER_position)
         # Tower Attack Properties
-        self.TOWER_attack_radius = 200
+        self.TOWER_attack_radius = 150
         self.TOWER_attack_radius_surface = pygame.Surface((self.TOWER_attack_radius*2, self.TOWER_attack_radius*2), pygame.SRCALPHA)
         self.TOWER_attack_radius_rect = self.TOWER_attack_radius_surface.get_frect(center = (self.rect.center))
         self.TOWER_attack_radius_color = (255,255,255,100)
@@ -40,7 +40,11 @@ class ArcherTower(pygame.sprite.Sprite):
         # ==== TOWER ARROW PROPERTIES === #
         self.ARROW_SPRITES = pygame.sprite.Group()
         self.ARROW_OBJECT = None
+        self.ARROW_COOLDOWN = 200
         # ==== TOWER ARROW PROPERTIES === #
+
+        # ==== ENEMY ==== #
+        self.ENTITY_OBJECT = None
         
     def _get_image(self, path_to_image):
         sprite_image_paths = os.listdir(path_to_image)
@@ -63,22 +67,24 @@ class ArcherTower(pygame.sprite.Sprite):
             self.TOWER_upgrade_state = 4
             self.TOWER_idle_category = list(self.TOWER_idle_keys)[self.TOWER_upgrade_state]
     
-    def _handle_arrow(self,delta_time, screen_surface, entity_object):
-        tower_position = pygame.Vector2(self.rect.center)
-        entity_position = pygame.Vector2(entity_object.rect.center)
-        entity_distance = tower_position.distance_to(entity_position)
+    def _handle_arrow(self, delta_time, screen_surface, entity_object):
+        if entity_object:
+            tower_position = pygame.Vector2(self.rect.center)
+            entity_position = pygame.Vector2(entity_object.rect.center)
+            entity_distance = tower_position.distance_to(entity_position)
 
-        if entity_distance <= self.TOWER_attack_radius:
-            if self.ARROW_OBJECT is None:
-                self.ARROW_OBJECT = Arrow(self.rect)
-                self.ARROW_SPRITES.add(self.ARROW_OBJECT)
-        if self.ARROW_OBJECT:
-            if self.ARROW_OBJECT.IS_COLLIDED:
-                self.ARROW_OBJECT.kill()
-                self.ARROW_OBJECT = None
+            if entity_distance <= self.TOWER_attack_radius:
+                if self.ARROW_OBJECT is None:
+                    self.ARROW_OBJECT = Arrow(self.rect)
+                    self.ARROW_SPRITES.add(self.ARROW_OBJECT)
+            if self.ARROW_OBJECT:
+                if self.ARROW_OBJECT.IS_COLLIDED:
+                    self.ARROW_OBJECT.kill()
+                    entity_object.health = entity_object.health - self.ARROW_OBJECT.damage
+                    self.ARROW_OBJECT = None
 
-        self.ARROW_SPRITES.update(delta_time, entity_object, entity_position)
-        self.ARROW_SPRITES.draw(screen_surface)
+            self.ARROW_SPRITES.update(delta_time, entity_object, entity_position)
+            self.ARROW_SPRITES.draw(screen_surface)
     
     def show_tower_radius(self, screen_surface):
         self.TOWER_attack_radius_rect.center = self.rect.center
@@ -88,6 +94,11 @@ class ArcherTower(pygame.sprite.Sprite):
         pygame.draw.rect(screen_surface, (255,255,255), self.rect, 1)
 
     def update(self, delta_time, screen_surface, entity_object):
+        self.ENTITY_OBJECT = entity_object
+
+        if self.ENTITY_OBJECT.health <= 0:
+            self.ENTITY_OBJECT = None
+
         self.show_tower_radius(screen_surface)
         self.show_tower_rect(screen_surface)
         self._handle_animation_IDLE(delta_time)
@@ -99,40 +110,49 @@ class ArcherTower(pygame.sprite.Sprite):
             self.rect.center = (self.TOWER_position.x, self.TOWER_position.y)
         
         # Render Arrow Frame
-        self._handle_arrow(delta_time, screen_surface, entity_object)
+        self._handle_arrow(delta_time, screen_surface, self.ENTITY_OBJECT)
 
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, tower_rect):
         super().__init__()
-        self.image_original = pygame.image.load(os.path.join('assets', 'ArcherTower','arrow.png')).convert_alpha()
+        self.image_original = pygame.image.load(os.path.join('assets', 'ArcherTower','arrow.png'))
         self.image = self.image_original.copy()
+        self.mask = pygame.mask.from_surface(self.image)
         self.position = pygame.Vector2(tower_rect.center)
-        self.rect = self.image.get_frect(center = (self.position.x, self.position.y))
+        self.rect = self.image.get_frect(center = self.position)
         self.speed = 400
+        self.damage = 5
 
         self.IS_COLLIDED = False
-    
+
     def handle_arrow_logic(self, delta_time, entity_object, entity_position):
-        # Calculate Direction for Aiming
-        arrow_position = pygame.Vector2(self.rect.center)
-        entity_position = entity_position
-        arrow_direction = (entity_position - arrow_position).normalize()
+        if entity_object:
+            # Calculate Direction for Aiming
+            arrow_position = pygame.Vector2(self.rect.center)
+            entity_position = entity_position
+            arrow_direction = (entity_position - arrow_position).normalize()
 
-        # Rotate Arrow
-        arrow_angle = math.degrees(math.atan2(-arrow_direction.y, arrow_direction.x)) - 90
-        self.image = pygame.transform.rotate(self.image_original, arrow_angle)
+            # Rotate Arrow
+            arrow_angle = math.degrees(math.atan2(-arrow_direction.y, arrow_direction.x)) - 90
+            self.image = pygame.transform.rotate(self.image_original, arrow_angle)
+            self.mask = pygame.mask.from_surface(self.image)
 
-        # Handle Arrow Logic (Movement & Collision)
-        self._handle_arrow_collision(entity_object)
-        self._handle_arrow_movement(arrow_direction ,delta_time)
+            # Handle Arrow Logic (Movement & Collision)
+            self._handle_arrow_collision(entity_object)
+            self._handle_arrow_movement(arrow_direction ,delta_time)
     
     def _handle_arrow_movement(self, arrow_direction, delta_time):
         self.position += arrow_direction * self.speed * delta_time
         self.rect.center = self.position
     
-    def _handle_arrow_collision(self, entity_object=None):
-        if self.rect.colliderect(entity_object):
-            self.IS_COLLIDED = True
+    def _handle_arrow_collision(self, entity_object):
+        if entity_object:
+            offset_x = entity_object.rect.x - self.rect.x
+            offset_y = entity_object.rect.y - self.rect.y
+            overlap_point = self.mask.overlap(entity_object.mask, (offset_x, offset_y))
+            if overlap_point:
+                self.kill()
+                self.IS_COLLIDED = True
             
     def update(self, delta_time, entity_object, entity_position):
         self.handle_arrow_logic(delta_time, entity_object, entity_position)

@@ -18,7 +18,7 @@ class Game():
         self._GAME_RUN = True
 
         # Create Tower Instance
-        self.TOWER_archer = ArcherTower()
+        self.TOWER_archer = ArcherTower(pygame.Vector2(0,1))
         self.TOWER_SPRITE_GROUP = pygame.sprite.Group()
         self.TOWER_SPRITE_GROUP.add(self.TOWER_archer)
         
@@ -44,7 +44,6 @@ class Game():
     def _handle_game_grid(self):
         for col in range(len(self.TILEMAP)):
             for row in range(len(self.TILEMAP[0])):
-                print(col, row)
                 pygame.draw.rect(self._SCREEN_SURFACE, (255,255,255), (row * self.GRID_TILESIZE, col * self.GRID_TILESIZE, self.GRID_TILESIZE, self.GRID_TILESIZE), 1)
 
     def run(self):
@@ -57,7 +56,7 @@ class Game():
 
             # Clear the screen first
             self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
-            #self._handle_game_grid()
+            self._handle_game_grid()
 
             self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENEMY_slime)
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)

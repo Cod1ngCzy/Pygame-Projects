@@ -1,7 +1,7 @@
 from settings import *
 
 class ArcherTower(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, position=pygame.Vector2(0,0)):
         super().__init__()
         # Idle Animation Sprites/Frames
         self.TOWER_idle_frame = {
@@ -23,7 +23,7 @@ class ArcherTower(pygame.sprite.Sprite):
         # Base Image for Sprite Group Use
         self.image = self.TOWER_idle_frame[self.TOWER_idle_category][int(self.animation_index)]
 
-        self.TOWER_position = pygame.Vector2(1024 // 2,768 // 2)
+        self.TOWER_position = pygame.Vector2(position.x * 64,position.y * 64)
         self.rect = self.image.get_frect(center = self.TOWER_position)
         # Tower Attack Properties
         self.TOWER_attack_radius = 250
@@ -49,6 +49,7 @@ class ArcherTower(pygame.sprite.Sprite):
     def _get_image(self, path_to_image):
         sprite_image_paths = os.listdir(path_to_image)
         sprite_images = [pygame.image.load(os.path.join(path_to_image,sprite)).convert_alpha() for sprite in sprite_image_paths]
+        sprite_images = [pygame.transform.scale(sprite, (64,sprite.get_height())) for sprite in sprite_images]
         return sprite_images
     
     def _handle_animation_IDLE(self, delta_time):
@@ -95,6 +96,8 @@ class ArcherTower(pygame.sprite.Sprite):
     def update(self, delta_time, screen_surface, entity_object):
         self.ENTITY_OBJECT = entity_object
 
+        print(self.TOWER_position)
+
         if self.ENTITY_OBJECT.health <= 0:
             self.ENTITY_OBJECT = None
 
@@ -102,11 +105,14 @@ class ArcherTower(pygame.sprite.Sprite):
         self.show_tower_rect(screen_surface)
         self._handle_animation_IDLE(delta_time)
 
-        mouse_pos = pygame.mouse.get_pos()
+        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0] // 64, pygame.mouse.get_pos()[1] // 64)
 
         if pygame.mouse.get_pressed()[0]:
+            mouse_pos.x = mouse_pos.x * 64 + 64 // 2
+            mouse_pos.y = mouse_pos.y * 64 + 64 // 2 + 32
             self.TOWER_position.update(mouse_pos)
-            self.rect.center = (self.TOWER_position.x, self.TOWER_position.y)
+            self.rect.midbottom = self.TOWER_position
+            print(self.TOWER_position.x, self.TOWER_position.y)
         
         # Render Arrow Frame
         self._handle_arrow(delta_time, screen_surface, self.ENTITY_OBJECT)

@@ -34,7 +34,8 @@ class ArcherTower(pygame.sprite.Sprite):
         # ==== TOWER ARROW PROPERTIES === #
         self.arrow_group = pygame.sprite.Group()
         self.arrow_object = None
-        self.arrow_object_cooldown = 200
+        self.arrow_object_cooldown = 500
+        self.arrow_object_lastshot = 0
         # ==== TOWER ARROW PROPERTIES === #
 
         # ==== ENEMY PROPERTIES ==== #
@@ -78,17 +79,22 @@ class ArcherTower(pygame.sprite.Sprite):
         entity_position = pygame.Vector2(entity_object.rect.center)
         entity_distance = tower_position.distance_to(entity_position)
 
-        if entity_distance <= self.attack_radius:
+        current_time = pygame.time.get_ticks()
+        elapsed_time = current_time - self.arrow_object_lastshot 
+
+        if entity_distance <= self.attack_radius and elapsed_time >= self.arrow_object_cooldown:
             if self.arrow_object is None:
                 self.arrow_object = Arrow(self.rect)
                 self.arrow_group.add(self.arrow_object)
+                self.arrow_object_lastshot = current_time
+                
         if self.arrow_object:
+            self.arrow_group.update(delta_time, entity_object, entity_position)
+            self.arrow_group.draw(screen_surface)
             if self.arrow_object.IS_COLLIDED:
                 self.arrow_object.kill()
                 self.arrow_object = None
-            self.arrow_group.update(delta_time, entity_object, entity_position)
-            self.arrow_group.draw(screen_surface)
-    
+
     def show_tower_radius(self, screen_surface):
         self.attack_radius_rect.center = (self.rect.centerx, self.rect.centery + 30)
         screen_surface.blit(self.attack_radius_surface, self.attack_radius_rect)
@@ -109,8 +115,8 @@ class ArcherTower(pygame.sprite.Sprite):
         mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0] // 64, pygame.mouse.get_pos()[1] // 64)
 
         if pygame.mouse.get_pressed()[0]:
-            mouse_pos.x = mouse_pos.x * 64 + 64 // 2
-            mouse_pos.y = mouse_pos.y * 64 + 64 // 2 + 32
+            mouse_pos.x = mouse_pos.x * 64
+            mouse_pos.y = mouse_pos.y * 64 
             self.position.update(mouse_pos)
             self.rect.midbottom = self.position
         
@@ -125,7 +131,7 @@ class Arrow(pygame.sprite.Sprite):
         self.position = pygame.Vector2(tower_rect.center)
         self.rect = self.image.get_frect(center = self.position)
         self.speed = 400
-        self.damage = 5
+        self.damage = 15
 
         self.IS_COLLIDED = False
 

@@ -3,103 +3,104 @@ from settings import *
 class ArcherTower(pygame.sprite.Sprite):
     def __init__(self, position=pygame.Vector2(0,0)):
         super().__init__()
-        # Idle Animation Sprites/Frames
-        self.TOWER_idle_frame = {
-            'idle1': self._get_image(os.path.join('assets', 'ArcherTower', 'IdleAnimation', 'idle1')),
-            'idle2': self._get_image(os.path.join('assets', 'ArcherTower', 'IdleAnimation', 'idle2')),
-            'idle3': self._get_image(os.path.join('assets', 'ArcherTower', 'IdleAnimation', 'idle3')),
-            'idle4': self._get_image(os.path.join('assets', 'ArcherTower', 'IdleAnimation', 'idle4')),
-            'idle5': self._get_image(os.path.join('assets', 'ArcherTower', 'IdleAnimation', 'idle5')),
-            'idle6': self._get_image(os.path.join('assets', 'ArcherTower', 'IdleAnimation', 'idle6')),
-        }
-        self.TOWER_idle_keys = self.TOWER_idle_frame.keys()
-        self.TOWER_upgrade_state = 2
-        self.TOWER_idle_category = list(self.TOWER_idle_keys)[self.TOWER_upgrade_state]
+        self.idle_frames = self._load_spritesheet_animations('IdleAnimation')
+        self.upgrade_frames = self._load_spritesheet_animations('UpgradeAnimation')
+
+        self.TOWER_idle_keys = self.idle_frames.keys()
+        self.upgrade_level = 0
+        self.TOWER_idle_category = list(self.TOWER_idle_keys)[self.upgrade_level]
 
         # Animation Properties
         self.animation_index = 0
         self.animation_speed = 10
+        self.animation_state = 'idle'
 
         # Base Image for Sprite Group Use
-        self.image = self.TOWER_idle_frame[self.TOWER_idle_category][int(self.animation_index)]
-
-        self.TOWER_position = pygame.Vector2(position.x * 64,position.y * 64)
-        self.rect = self.image.get_frect(center = self.TOWER_position)
+        self.image = self.idle_frames[self.TOWER_idle_category][int(self.animation_index)]
+        self.position = pygame.Vector2(position.x * 64,position.y * 64)
+        self.rect = self.image.get_frect(center = self.position)
         # Tower Attack Properties
-        self.TOWER_attack_radius = 250
-        self.TOWER_attack_radius_surface = pygame.Surface((self.TOWER_attack_radius*2, self.TOWER_attack_radius*2), pygame.SRCALPHA)
-        self.TOWER_attack_radius_rect = self.TOWER_attack_radius_surface.get_frect(center = (self.rect.center))
-        self.TOWER_attack_radius_color = (255,255,255,100)
-        pygame.draw.circle(self.TOWER_attack_radius_surface, (255, 0, 0, 75), (self.TOWER_attack_radius, self.TOWER_attack_radius), self.TOWER_attack_radius)
-        pygame.draw.circle(self.TOWER_attack_radius_surface, (0, 0, 0, 255), (self.TOWER_attack_radius, self.TOWER_attack_radius), self.TOWER_attack_radius, 2)
+        self.attack_radius = 150
+        self.attack_radius_surface = pygame.Surface((self.attack_radius*2, self.attack_radius*2), pygame.SRCALPHA)
+        self.attack_radius_rect = self.attack_radius_surface.get_frect(center = (self.rect.center))
+        self.attack_radius_color = (255,255,255,100)
+        pygame.draw.circle(self.attack_radius_surface, (255, 0, 0, 75), (self.attack_radius, self.attack_radius), self.attack_radius)
+        pygame.draw.circle(self.attack_radius_surface, (0, 0, 0, 255), (self.attack_radius, self.attack_radius), self.attack_radius, 2)
 
         # Flag
         self.show_rect = False
         self.show_radius = False
 
         # ==== TOWER ARROW PROPERTIES === #
-        self.ARROW_SPRITES = pygame.sprite.Group()
-        self.ARROW_OBJECT = None
-        self.ARROW_COOLDOWN = 200
+        self.arrow_group = pygame.sprite.Group()
+        self.arrow_object = None
+        self.arrow_object_cooldown = 200
         # ==== TOWER ARROW PROPERTIES === #
 
-        # ==== ENEMY ==== #
-        self.ENTITY_OBJECT = None
+        # ==== ENEMY PROPERTIES ==== #
+        self.target_entity_object = None
+         # ==== ENEMY PROPERTIES ==== #
         
-    def _get_image(self, path_to_image):
-        sprite_image_paths = os.listdir(path_to_image)
-        sprite_images = [pygame.image.load(os.path.join(path_to_image,sprite)).convert_alpha() for sprite in sprite_image_paths]
-        sprite_images = [pygame.transform.scale(sprite, (64,sprite.get_height())) for sprite in sprite_images]
-        return sprite_images
+    def _get_spritesheet(self, path_to_image):
+        image_paths = os.listdir(path_to_image)
+        image_sprite = []
+        
+        for image in image_paths:
+            image = pygame.image.load(os.path.join(path_to_image, image)).convert_alpha()
+            image = pygame.transform.scale(image, (64, image.get_height()))
+            image_sprite.append(image)
+
+        return image_sprite
+
+    def _load_spritesheet_animations(self, spritesheet_folder_path):
+        base_path = os.path.join('assets', 'ArcherTower')
+        spritesheet = os.listdir(os.path.join(base_path, spritesheet_folder_path))
+        spritesheet_frames = {}
+        
+        for i in range(len(spritesheet)):
+            key = spritesheet[i]
+            spritesheet_frames[key] = self._get_spritesheet(os.path.join(base_path, spritesheet_folder_path, str(key)))
+
+        return spritesheet_frames
     
     def _handle_animation_IDLE(self, delta_time):
         self.animation_index += self.animation_speed * delta_time
-        self.animation_index %= len(self.TOWER_idle_frame[self.TOWER_idle_category])
+        self.animation_index %= len(self.idle_frames[self.TOWER_idle_category])
 
-        self.image = self.TOWER_idle_frame[self.TOWER_idle_category][int(self.animation_index)]
-
-    def _handle_tower_upgrade(self):
-        return
-        keys = pygame.key.get_pressed()
-
-        if keys[pygame.K_q]:
-            print('upgrade')
-            self.animation_index = 0
-            self.TOWER_upgrade_state = 4
-            self.TOWER_idle_category = list(self.TOWER_idle_keys)[self.TOWER_upgrade_state]
+        self.image = self.idle_frames[self.TOWER_idle_category][int(self.animation_index)]
     
-    def _handle_arrow(self, delta_time, screen_surface, entity_object):
-        if entity_object:
-            tower_position = pygame.Vector2(self.rect.center)
-            entity_position = pygame.Vector2(entity_object.rect.center)
-            entity_distance = tower_position.distance_to(entity_position)
+    def _handle_attack(self, delta_time, screen_surface, entity_object):
+        if not entity_object or entity_object.health <= 0:
+            self.target_entity_object = None
+            return
+        
+        tower_position = pygame.Vector2(self.rect.center)
+        entity_position = pygame.Vector2(entity_object.rect.center)
+        entity_distance = tower_position.distance_to(entity_position)
 
-            if entity_distance <= self.TOWER_attack_radius:
-                if self.ARROW_OBJECT is None:
-                    self.ARROW_OBJECT = Arrow(self.rect)
-                    self.ARROW_SPRITES.add(self.ARROW_OBJECT)
-            if self.ARROW_OBJECT:
-                if self.ARROW_OBJECT.IS_COLLIDED:
-                    self.ARROW_OBJECT.kill()
-                    self.ARROW_OBJECT = None
-
-            self.ARROW_SPRITES.update(delta_time, entity_object, entity_position)
-            self.ARROW_SPRITES.draw(screen_surface)
+        if entity_distance <= self.attack_radius:
+            if self.arrow_object is None:
+                self.arrow_object = Arrow(self.rect)
+                self.arrow_group.add(self.arrow_object)
+        if self.arrow_object:
+            if self.arrow_object.IS_COLLIDED:
+                self.arrow_object.kill()
+                self.arrow_object = None
+            self.arrow_group.update(delta_time, entity_object, entity_position)
+            self.arrow_group.draw(screen_surface)
     
     def show_tower_radius(self, screen_surface):
-        self.TOWER_attack_radius_rect.center = self.rect.center
-        screen_surface.blit(self.TOWER_attack_radius_surface, self.TOWER_attack_radius_rect)
+        self.attack_radius_rect.center = (self.rect.centerx, self.rect.centery + 30)
+        screen_surface.blit(self.attack_radius_surface, self.attack_radius_rect)
     
     def show_tower_rect(self, screen_surface):
         pygame.draw.rect(screen_surface, (255,255,255), self.rect, 1)
 
     def update(self, delta_time, screen_surface, entity_object):
-        self.ENTITY_OBJECT = entity_object
+        self.target_entity_object = entity_object
 
-        print(self.TOWER_position)
-
-        if self.ENTITY_OBJECT.health <= 0:
-            self.ENTITY_OBJECT = None
+        if self.target_entity_object.health <= 0:
+            self.target_entity_object = None
 
         self.show_tower_radius(screen_surface)
         self.show_tower_rect(screen_surface)
@@ -110,12 +111,10 @@ class ArcherTower(pygame.sprite.Sprite):
         if pygame.mouse.get_pressed()[0]:
             mouse_pos.x = mouse_pos.x * 64 + 64 // 2
             mouse_pos.y = mouse_pos.y * 64 + 64 // 2 + 32
-            self.TOWER_position.update(mouse_pos)
-            self.rect.midbottom = self.TOWER_position
-            print(self.TOWER_position.x, self.TOWER_position.y)
+            self.position.update(mouse_pos)
+            self.rect.midbottom = self.position
         
-        # Render Arrow Frame
-        self._handle_arrow(delta_time, screen_surface, self.ENTITY_OBJECT)
+        self._handle_attack(delta_time, screen_surface, self.target_entity_object)
 
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, tower_rect):

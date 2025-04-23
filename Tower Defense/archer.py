@@ -3,20 +3,19 @@ from settings import *
 class ArcherTower(pygame.sprite.Sprite):
     def __init__(self, position=pygame.Vector2(0,0)):
         super().__init__()
-        self.idle_frames = self._load_spritesheet_animations('IdleAnimation')
-        self.upgrade_frames = self._load_spritesheet_animations('UpgradeAnimation')
-
-        self.TOWER_idle_keys = self.idle_frames.keys()
-        self.upgrade_level = 0
-        self.TOWER_idle_category = list(self.TOWER_idle_keys)[self.upgrade_level]
 
         # Animation Properties
         self.animation_index = 0
         self.animation_speed = 10
         self.animation_state = 'idle'
+        self.upgrade_level = 2
+        self.animations = {
+            'idle': self._load_spritesheet_animations('assets/ArcherTower/IdleAnimation', 'idle', 6),
+            'upgrade': self._load_spritesheet_animations('assets/ArcherTower/UpgradeAnimation', 'upgrade', 7)
+        }
 
         # Base Image for Sprite Group Use
-        self.image = self.idle_frames[self.TOWER_idle_category][int(self.animation_index)]
+        self.image = self._get_animation_frame()
         self.position = pygame.Vector2(position.x * 64,position.y * 64)
         self.rect = self.image.get_frect(center = self.position)
         # Tower Attack Properties
@@ -40,6 +39,7 @@ class ArcherTower(pygame.sprite.Sprite):
 
         # ==== ENEMY PROPERTIES ==== #
         self.target_entity_object = None
+        self.upgrade = False
          # ==== ENEMY PROPERTIES ==== #
         
     def _get_spritesheet(self, path_to_image):
@@ -53,23 +53,52 @@ class ArcherTower(pygame.sprite.Sprite):
 
         return image_sprite
 
-    def _load_spritesheet_animations(self, spritesheet_folder_path):
-        base_path = os.path.join('assets', 'ArcherTower')
-        spritesheet = os.listdir(os.path.join(base_path, spritesheet_folder_path))
-        spritesheet_frames = {}
+    def _load_spritesheet_animations(self, base_path, prefix, count):
+        animations = {}
         
-        for i in range(len(spritesheet)):
-            key = spritesheet[i]
-            spritesheet_frames[key] = self._get_spritesheet(os.path.join(base_path, spritesheet_folder_path, str(key)))
-
-        return spritesheet_frames
+        for level in range(1, count + 1):
+            path = f"{base_path}/{prefix}{level}"
+            files = os.listdir(path)
+            frames = []
+            
+            for file in sorted(files):  # Sort to ensure correct order
+                img = pygame.image.load(os.path.join(path, file)).convert_alpha()
+                img = pygame.transform.scale(img, (64, img.get_height()))
+                frames.append(img)
+                
+            animations[level] = frames
+            
+        return animations
     
-    def _handle_animation_IDLE(self, delta_time):
+    def _handle_animation(self, delta_time):
         self.animation_index += self.animation_speed * delta_time
-        self.animation_index %= len(self.idle_frames[self.TOWER_idle_category])
 
-        self.image = self.idle_frames[self.TOWER_idle_category][int(self.animation_index)]
+        # Handle Upgrade Animation
+        self._handle_tower_upgrade()
+        if self.animation_state == 'upgrade':
+            frames = self.animations['upgrade'][self.upgrade_level]
+            if int(self.animation_index) >= len(frames):
+                self._change_animation_state('idle')
+
+        self.image = self._get_animation_frame()
     
+    def _handle_tower_upgrade(self):
+        if self.upgrade:
+            self.upgrade_level += 1
+            self._change_animation_state('upgrade')
+            self.upgrade = False
+    
+    def _change_animation_state(self, new_state):
+        if new_state in self.animations and new_state != self.animation_state:
+            self.animation_state = new_state
+            self.animation_index = 0
+
+    def _get_animation_frame(self):
+        frames = self.animations[self.animation_state][self.upgrade_level]
+        index = int(self.animation_index) % len(frames)
+
+        return frames[index]
+
     def _handle_attack(self, delta_time, screen_surface, entity_object):
         if not entity_object or entity_object.health <= 0:
             self.target_entity_object = None
@@ -110,13 +139,13 @@ class ArcherTower(pygame.sprite.Sprite):
 
         self.show_tower_radius(screen_surface)
         self.show_tower_rect(screen_surface)
-        self._handle_animation_IDLE(delta_time)
+        self._handle_animation(delta_time)
 
         mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0] // 64, pygame.mouse.get_pos()[1] // 64)
 
         if pygame.mouse.get_pressed()[0]:
-            mouse_pos.x = mouse_pos.x * 64
-            mouse_pos.y = mouse_pos.y * 64 
+            mouse_pos.x = mouse_pos.x * 64 + 32
+            mouse_pos.y = mouse_pos.y * 64 + 64
             self.position.update(mouse_pos)
             self.rect.midbottom = self.position
         

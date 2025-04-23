@@ -18,7 +18,7 @@ class Game():
         self._GAME_RUN = True
 
         # Create Tower Instance
-        self.TOWER_archer = ArcherTower(pygame.Vector2(0,1))
+        self.TOWER_archer = ArcherTower(pygame.Vector2(0,0))
         self.TOWER_SPRITE_GROUP = pygame.sprite.Group()
         self.TOWER_SPRITE_GROUP.add(self.TOWER_archer)
         

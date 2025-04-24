@@ -13,6 +13,7 @@ class Game():
 
         # Game Clock
         self._GAME_CLOCK = pygame.time.Clock()
+        self._GAME_TIMER = 0
 
         # Running Flag
         self._GAME_RUN = True
@@ -22,9 +23,7 @@ class Game():
         self.TOWER_SPRITE_GROUP = pygame.sprite.Group()
         self.TOWER_SPRITE_GROUP.add(self.TOWER_archer)
         
-        self.ENEMY_slime = Enemy()
-        self.ENEMY_SPRITE_GROUP = pygame.sprite.Group()
-        self.ENEMY_SPRITE_GROUP.add(self.ENEMY_slime)
+        self.ENTITY_SPRITE_GROUP = pygame.sprite.Group()
 
         # Grid Properties
         self.GRID_TILESIZE = 64
@@ -33,24 +32,42 @@ class Game():
         self.TILEMAP = [[0 for _ in range(self.GRID_WIDTH)] for _ in range(self.GRID_HEIGHT)]
         self.TILEMAP_INIT = False
 
+        # Game Logic Properties
+        self.WAVE = 0
+        self.WAVE_START = False
+        self.ENTITY_MAX_SPAWN = 2
+        self.ENTITY_SPAWN_EVENT = pygame.event.custom_type()
+        pygame.time.set_timer(self.ENTITY_SPAWN_EVENT, 1000)
+
     def _handle_game_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self._GAME_RUN = False
+            if event.type == self.ENTITY_SPAWN_EVENT: 
+                self._handle_entity_spawning()
+        
     
-    def _handle_game_timer(self):
-        pass
+    def _handle_game_timer(self, delta_time):
+        self._GAME_TIMER += delta_time * 1000
 
     def _handle_game_grid(self):
         for col in range(len(self.TILEMAP)):
             for row in range(len(self.TILEMAP[0])):
                 pygame.draw.rect(self._SCREEN_SURFACE, (255,255,255), (row * self.GRID_TILESIZE, col * self.GRID_TILESIZE, self.GRID_TILESIZE, self.GRID_TILESIZE), 1)
+    
+    def _handle_entity_spawning(self):
+        if len(self.ENTITY_SPRITE_GROUP) <= self.ENTITY_MAX_SPAWN:
+            ENTITY_slime = Enemy()
+            self.ENTITY_SPRITE_GROUP.add(ENTITY_slime)
+    
+    def _handle_game_waves(self):
+        pass
 
     def run(self):
         while self._GAME_RUN:
             delta_time = self._GAME_CLOCK.tick() / 1000
 
-            mouse_pos = pygame.mouse.get_pos()
+            self._handle_game_timer(delta_time)
             
             self._handle_game_events()
 
@@ -58,11 +75,11 @@ class Game():
             self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
             self._handle_game_grid()
 
-            self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENEMY_slime)
+            self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP)
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
 
-            self.ENEMY_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE)
-            self.ENEMY_SPRITE_GROUP.draw(self._SCREEN_SURFACE)  
+            self.ENTITY_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE)
+            self.ENTITY_SPRITE_GROUP.draw(self._SCREEN_SURFACE)  
             # Update display once after all drawing is complete
             pygame.display.update()
         

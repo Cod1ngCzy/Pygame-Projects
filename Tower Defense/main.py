@@ -46,7 +46,6 @@ class Game():
             if event.type == self.ENTITY_SPAWN_EVENT: 
                 self._handle_entity_spawning()
         
-    
     def _handle_game_timer(self, delta_time):
         self._GAME_TIMER += delta_time * 1000
 
@@ -59,9 +58,6 @@ class Game():
         if len(self.ENTITY_SPRITE_GROUP) <= self.ENTITY_MAX_SPAWN:
             ENTITY_slime = Enemy()
             self.ENTITY_SPRITE_GROUP.add(ENTITY_slime)
-    
-    def _handle_game_waves(self):
-        pass
 
     def run(self):
         while self._GAME_RUN:

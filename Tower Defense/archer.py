@@ -138,7 +138,6 @@ class ArcherTower(pygame.sprite.Sprite):
         else:
             self.targeted_entity_object = None
 
-        print(self.entity_list)
 
     
     def _change_animation_state(self, new_state):
@@ -164,13 +163,13 @@ class ArcherTower(pygame.sprite.Sprite):
         self._handle_internal_timer(delta_time)
         self._handle_tower_upgrade() 
 
-        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0] // 64, pygame.mouse.get_pos()[1] // 64)
+        #mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0] // 64, pygame.mouse.get_pos()[1] // 64)
 
-        if pygame.mouse.get_pressed()[0]: 
+        """if pygame.mouse.get_pressed()[0]: 
             mouse_pos.x = mouse_pos.x * 64 + 32
             mouse_pos.y = mouse_pos.y * 64 + 64
             self.position.update(mouse_pos)
-            self.rect.midbottom = self.position
+            self.rect.midbottom = self.position"""
         
         self.show_tower_radius(screen_surface)
         self.show_tower_rect(screen_surface)

@@ -19,11 +19,7 @@ class Game():
         # Running Flag
         self._GAME_RUN = True
 
-        # Create Tower Instance
-        self.TOWER_archer = ArcherTower(pygame.Vector2(0,0))
-        self.TOWER_SPRITE_GROUP = pygame.sprite.Group()
-        self.TOWER_SPRITE_GROUP.add(self.TOWER_archer)
-        
+        self.TOWER_SPRITE_GROUP = pygame.sprite.Group() 
         self.ENTITY_SPRITE_GROUP = pygame.sprite.Group()
 
         # Grid Properties
@@ -39,7 +35,6 @@ class Game():
         self.ENTITY_MAX_SPAWN = 2
         self.ENTITY_SPAWN_EVENT = pygame.event.custom_type()
         pygame.time.set_timer(self.ENTITY_SPAWN_EVENT, 1000)
-
 
         # Card Properties
         self.CARD_MANAGER = CardManager()
@@ -63,6 +58,14 @@ class Game():
         if len(self.ENTITY_SPRITE_GROUP) <= self.ENTITY_MAX_SPAWN:
             ENTITY_slime = Enemy()
             self.ENTITY_SPRITE_GROUP.add(ENTITY_slime)
+    
+    def _handle_tower_creation(self):
+        if self.CARD_MANAGER.selected_card:
+            print('yep')
+    
+    def _handle_card_manager_states(self):
+        if self.CARD_MANAGER.selected_card:
+            print('yep')
 
     def run(self):
         while self._GAME_RUN:
@@ -77,6 +80,7 @@ class Game():
             self._handle_game_grid()
 
             self.CARD_MANAGER.draw(self._SCREEN_SURFACE, delta_time)
+            self._handle_card_manager_states()
 
             self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP)
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)

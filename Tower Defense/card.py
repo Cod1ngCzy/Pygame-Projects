@@ -31,7 +31,7 @@ class Card(pygame.sprite.Sprite):
         self.rect.center = self.position
     
     def _handle_hover(self, delta_time, mouse_pos):
-        if self.rect.collidepoint(mouse_pos):
+        if self.rect.collidepoint(mouse_pos) and not self.is_hover:
             hover_position = pygame.Vector2(self.deck_position.x,self.deck_position.y - 100)
             clamp_factor = min(1.0, self.move_speed * delta_time)
             self.position -= (self.position - hover_position) * clamp_factor
@@ -48,17 +48,14 @@ class Card(pygame.sprite.Sprite):
     def set_selected(self, selected):
         if selected and not self.is_selected:
             self.is_selected = True
-            self.image.set_alpha(128)
-            print('yep')
+            self.image.set_alpha(50)
         elif not selected and self.is_selected:
             self.is_selected = False
             self.image.set_alpha(255)
-            print('yep')
 
     def update(self, delta_time, mouse_pos, mouse_just_clicked):
         self._handle_selected(mouse_pos)
-        self._handle_hover(delta_time, mouse_pos)
-        if not self.is_hover:
+        if not self.is_hover and not self.is_selected:
             self._update_card_position(delta_time)
         
 
@@ -69,15 +66,19 @@ class CardManager():
         self.deck_surface = pygame.Surface((self.deck_width, self.deck_height), pygame.SRCALPHA)
         self.deck_surface_rect = self.deck_surface.get_frect(center=(1024 // 2, 700))
         
-        self.deck_group = pygame.sprite.Group()
         self.max_cards = 5
         self.cards_spawned = 0
         self.card_spacing = 180  
+        self.card_consumed = False
+        self.card_returned = False
 
         self.show_deck = True
         self.hide_deck = False
-        self.visible_deck = False
 
+        self.deck_group = pygame.sprite.Group()
+        self.on_hand_card = {
+            'TowerType':'TowerID'
+        }
         self.selected_card = None
 
         self._spawn_cards()
@@ -122,13 +123,15 @@ class CardManager():
             for card in self.deck_group:
                 if card.rect.collidepoint(mouse_pos) and mouse_just_clicked[0]:
                     self.selected_card = card
-                    card.set_selected(True)
-        
-        if mouse_just_clicked[2] and self.selected_card:
-            self.selected_card.set_selected(False)
-            self.selected_card = None
-
+                    self.selected_card.set_selected(True)
+                    return
                 
+        if mouse_just_clicked[2] and self.selected_card:
+            self.return_selected_card()
+
+        return
+
+
     def _handle_deck(self, surface, delta_time, mouse_pos, mouse_just_clicked):
         if self.show_deck:
             self._show_cards()
@@ -139,8 +142,34 @@ class CardManager():
         
         self.deck_group.update(delta_time, mouse_pos, mouse_just_clicked)
         self.deck_group.draw(surface)
+
+    def get_selected_card(self):
+        if self.selected_card:
+            return self.selected_card
+        return None
+    
+    def return_selected_card(self):
+        if self.selected_card:
+            self.selected_card.set_selected(False)
+            self.selected_card = None
+            self.card_returned = True
+            return
+        return None
+    
+    def consume_selected_card(self):
+        if self.selected_card:
+            self.selected_card.kill()
+            self.selected_card.set_selected(False)
+            self.selected_card = None
+            self.card_consumed = True
+            return
+        return None
+
+    def reset_card_flags(self):
+        self.card_returned = False
+        self.card_consumed = False
             
-    def draw(self, surface, delta_time):
+    def handle_deck(self, surface, delta_time):
         keys = pygame.key.get_pressed()
         mouse_pos = pygame.mouse.get_pos()
         mouse_just_clicked = pygame.mouse.get_just_pressed()

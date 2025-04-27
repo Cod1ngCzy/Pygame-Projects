@@ -1,7 +1,7 @@
 from settings import *
 
 class ArcherTower(pygame.sprite.Sprite):
-    def __init__(self, position=pygame.Vector2(0,0)):
+    def __init__(self, position=pygame.Vector2(0,0), preview_mode=False):
         super().__init__()
 
         # Animation Properties
@@ -16,7 +16,7 @@ class ArcherTower(pygame.sprite.Sprite):
 
         # Base Image for Sprite Group Use
         self.image = self._get_animation_frame()
-        self.position = pygame.Vector2(position.x * 64,position.y * 64)
+        self.position = pygame.Vector2(position.x * 64 + 32,position.y * 64)
         self.rect = self.image.get_frect(center = self.position)
         # Tower Attack Properties
         self.attack_radius = 150
@@ -38,6 +38,7 @@ class ArcherTower(pygame.sprite.Sprite):
         # Flag
         self.show_rect = False
         self.show_radius = False
+        self.preview_mode = preview_mode
 
         # ==== TOWER ARROW PROPERTIES === #
         self.arrow_object_group = pygame.sprite.Group()
@@ -137,8 +138,6 @@ class ArcherTower(pygame.sprite.Sprite):
             self.targeted_entity_object = self.entity_list[0]
         else:
             self.targeted_entity_object = None
-
-
     
     def _change_animation_state(self, new_state):
         if new_state in self.animations and new_state != self.animation_state:
@@ -160,21 +159,25 @@ class ArcherTower(pygame.sprite.Sprite):
 
     def update(self, delta_time, screen_surface, entity_object_group):
         # Class Timer
+        if self.preview_mode:
+            self.show_tower_radius(screen_surface)
+            self.show_tower_rect(screen_surface)
+            return
+        
         self._handle_internal_timer(delta_time)
         self._handle_tower_upgrade() 
-
-        #mouse_pos = pygame.Vector2(pygame.mouse.get_pos()[0] // 64, pygame.mouse.get_pos()[1] // 64)
-
-        """if pygame.mouse.get_pressed()[0]: 
-            mouse_pos.x = mouse_pos.x * 64 + 32
-            mouse_pos.y = mouse_pos.y * 64 + 64
-            self.position.update(mouse_pos)
-            self.rect.midbottom = self.position"""
         
         self.show_tower_radius(screen_surface)
         self.show_tower_rect(screen_surface)
         self._handle_animation(delta_time)
         self._handle_attack(delta_time, screen_surface, entity_object_group)
+    
+    def update_position(self, position=pygame.Vector2(0,0)):
+        position.x = position.x * 64 + 32
+        position.y = position.y * 64
+        self.position.update(position)
+        self.rect.center = self.position
+
 
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, tower_rect):

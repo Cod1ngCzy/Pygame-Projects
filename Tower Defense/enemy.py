@@ -27,6 +27,8 @@ class Enemy(pygame.sprite.Sprite):
         self.speed = 100
         self.health = 100
 
+        self.killed = False
+
     def _get_image_tileset(self, path_to_image):
         sprite_image_paths = os.listdir(path_to_image)
         sprite_images = [pygame.image.load(os.path.join(path_to_image,sprite)) for sprite in sprite_image_paths]
@@ -80,6 +82,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def update(self, delta_time, screen_surface):
         if self.health <= 0:
+            self.killed = True
             self._handle_animation_death(delta_time)
         else:
             self._handle_animation_walk(delta_time)

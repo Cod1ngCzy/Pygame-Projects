@@ -20,6 +20,7 @@ class Game():
         self._GAME_RUN = True
 
         self.TOWER_SPRITE_GROUP = pygame.sprite.Group() 
+        self.TOWER_ENTITIES = {}
         self.ENTITY_SPRITE_GROUP = pygame.sprite.Group()
 
         # Grid Properties
@@ -75,7 +76,6 @@ class Game():
                 self.CARD_TOWER.kill()
                 self.CARD_TOWER = None
         
-
         if self.CARD_TOWER:
             grid_pos = pygame.Vector2(
                 mouse_pos[0] // 64,
@@ -95,6 +95,7 @@ class Game():
             )
 
             new_tower = ArcherTower(grid_pos, False)
+            self.TOWER_ENTITIES[f'CARD_TOWER{len(self.TOWER_ENTITIES)}'] = new_tower
             self.TOWER_SPRITE_GROUP.add(new_tower)
             self.CARD_MANAGER.consume_selected_card()
         
@@ -112,7 +113,7 @@ class Game():
 
             # Clear the screen first
             self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
-            self._handle_game_grid()
+            #self._handle_game_grid()
 
             self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
             self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)

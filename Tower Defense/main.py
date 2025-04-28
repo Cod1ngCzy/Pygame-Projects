@@ -68,7 +68,6 @@ class Game():
                 self.TOWER_SPRITE_GROUP.add(self.CARD_TOWER)
             elif self.CARD_TOWER:
                 self._handle_tower_placement(mouse_pos, mouse_just_clicked)
-
             return
         
         if self.CARD_MANAGER.card_consumed or self.CARD_MANAGER.card_returned:
@@ -113,12 +112,13 @@ class Game():
 
             # Clear the screen first
             self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
-            #self._handle_game_grid()
+            self._handle_game_grid()
 
             self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
             self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)
 
-            self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP)
+
+            self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP,mouse_pos,mouse_just_clicked)
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
 
             self.ENTITY_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE)

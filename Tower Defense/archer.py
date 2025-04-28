@@ -1,102 +1,89 @@
 from settings import *
 
 class Tower(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, position=pygame.Vector2(0, 0), preview_mode=False):
         super().__init__()
 
         self.animation_index = 0
         self.animation_speed = 10
         self.animation_state = None
         self.upgrade_level = 1
+        self.max_upgrade_level = 6
         self.animation_frames = {}
 
-        self.position = pygame.Vector2(0,0)
+        self.position = pygame.Vector2(position.x * 64 + 32, position.y * 64)
         self.image = None
         self.rect = None
 
         self.attack_radius = 150
-        self.attack_radius_surface = pygame.Surface((self.attack_radius*2, self.attack_radius*2), pygame.SRCALPHA)
-        self.attack_radius_rect = self.attack_radius_surface.get_frect(center = (0,0))
-        self.attack_radius_color = (255,255,255,100)
+        self.attack_radius_surface = pygame.Surface((self.attack_radius * 2, self.attack_radius * 2), pygame.SRCALPHA)
         pygame.draw.circle(self.attack_radius_surface, (255, 0, 0, 75), (self.attack_radius, self.attack_radius), self.attack_radius)
         pygame.draw.circle(self.attack_radius_surface, (0, 0, 0, 255), (self.attack_radius, self.attack_radius), self.attack_radius, 2)
+        self.attack_radius_rect = self.attack_radius_surface.get_frect(center=(0, 0))
 
-        # Tower Upgrade Properties
         self.time_since_placed = 0
         self.upgrade_time = 0
         self.upgrade_time_threshold = 120000
         self.kill_count = 0
-        self.max_upgrade_level = 6
-        self.upgrade_level = 0
 
-        # Flag
         self.show_rect = False
         self.show_radius = False
-        self.preview_mode = False
+        self.preview_mode = preview_mode
 
     def _load_spritesheet_animations(self, base_path, prefix, count):
         animations = {}
-        
         for level in range(1, count + 1):
             path = f"{base_path}/{prefix}{level}"
             files = os.listdir(path)
             frames = []
-            
-            for file in sorted(files):  # Sort to ensure correct order
+            for file in sorted(files):
                 img = pygame.image.load(os.path.join(path, file)).convert_alpha()
                 img = pygame.transform.scale(img, (64, img.get_height()))
                 frames.append(img)
-                
             animations[level] = frames
-            
         return animations
 
     def show_tower_radius(self, screen_surface):
         self.attack_radius_rect.center = (self.rect.centerx, self.rect.centery + 30)
         screen_surface.blit(self.attack_radius_surface, self.attack_radius_rect)
-    
+
     def show_tower_rect(self, screen_surface):
-        pygame.draw.rect(screen_surface, (255,255,255), self.rect, 1)
-    
+        if self.show_rect:
+            pygame.draw.rect(screen_surface, (255, 255, 255), self.rect, 1)
+
 class ArcherTower(Tower):
-    def __init__(self, position=pygame.Vector2(0,0), preview_mode=False):
-        super().__init__()
+    def __init__(self, position=pygame.Vector2(0, 0), preview_mode=False):
+        super().__init__(position, preview_mode)
 
         # Animation Properties
         self.animation_speed = 10
         self.animation_state = 'idle'
-        self.upgrade_level = 1
         self.animation_frames = {
             'idle': self._load_spritesheet_animations('assets/ArcherTower/IdleAnimation', 'idle', 6),
             'upgrade': self._load_spritesheet_animations('assets/ArcherTower/UpgradeAnimation', 'upgrade', 7)
         }
 
-        # Base Image for Sprite Group Use
-        self.position = pygame.Vector2(position.x * 64 + 32,position.y * 64)
+        # Base Image and Rects
         self.image = self._get_animation_frame()
-        self.rect = self.image.get_frect(center = self.position)
-        self.anchor_rect = pygame.Rect(self.rect.x, self.rect.y + self.image.get_height() - 64,64,64)
+        self.rect = self.image.get_frect(center=self.position)
+        self.anchor_rect = pygame.Rect(self.rect.x, self.rect.y + self.image.get_height() - 64, 64, 64)
 
-        self.attack_radius = 150
-        self.attack_radius_rect = self.attack_radius_surface.get_frect(center = (self.rect.center))
-        self.preview_mode = preview_mode
-
-        # ==== TOWER ARROW PROPERTIES === #
+        # Arrow Properties (specific to ArcherTower)
         self.arrow_object_group = pygame.sprite.Group()
         self.arrow_object = None
-        self.arrow_cooldown = 500
+        self.arrow_cooldown = 500  # milliseconds
+        self.arrow_damage = 15
+        self.arrow_speed = 250
         self.arrow_object_lastshot = 0
-        # ==== TOWER ARROW PROPERTIES === #
+        self.arrow_multishot = False
 
-        # ==== ENEMY PROPERTIES ==== #
+        # Entity Targeting (specific to ArcherTower)
         self.entity_list = []
         self.targeted_entity_object = None
-         # ==== ENEMY PROPERTIES ==== #
-    
+
     def _handle_animation(self, delta_time):
         self.animation_index += self.animation_speed * delta_time
 
-        # Handle Upgrade Animation
         if self.animation_state == 'upgrade':
             frames = self.animation_frames['upgrade'][self.upgrade_level]
             if int(self.animation_index) >= len(frames):
@@ -106,54 +93,85 @@ class ArcherTower(Tower):
     
     def _handle_tower_upgrade(self):
         if self.upgrade_level < self.max_upgrade_level:
-            # TODO: make this abomination more readable
             self.upgrade_level += 1
             self._change_animation_state('upgrade')
+        
+        match self.upgrade_level:
+            case 2:
+                self.arrow_damage = 15
+                self.arrow_speed = 250
+            case 3:
+                self.arrow_damage = 15
+                self.arrow_speed = 300
+                self.attack_radius = 200
+            case 4:
+                self.arrow_damage = 20
+                self.arrow_speed = 300
+            case 5:
+                self.arrow_damage = 20
+                self.arrow_speed = 350
+            case 6:
+                self.arrow_damage = 25
+                self.arrow_speed = 350
+                self.attack_radius = 250
+                self.arrow_multishot = True
+        
+        self.attack_radius_surface = pygame.Surface((self.attack_radius*2, self.attack_radius*2), pygame.SRCALPHA)
+        self.attack_radius_rect = self.attack_radius_surface.get_frect(center = (0,0))
+        pygame.draw.circle(self.attack_radius_surface, (255, 0, 0, 75), (self.attack_radius, self.attack_radius), self.attack_radius)
+        pygame.draw.circle(self.attack_radius_surface, (0, 0, 0, 255), (self.attack_radius, self.attack_radius), self.attack_radius, 2)
 
     def _handle_internal_timer(self, delta_time):
-        # Initial Archer Timer
         self.time_since_placed += delta_time * 1000
         self.upgrade_time += delta_time * 1000
+        self.arrow_cooldown_timer = self.time_since_placed - self.arrow_object_lastshot
 
     def _handle_attack(self, delta_time, screen_surface, entity_object_group):
-        entity_position = pygame.Vector2(self.targeted_entity_object.rect.center if self.targeted_entity_object else (0,0))
-        entity_distance = self.position.distance_to(entity_position)
-        arrow_cooldown_timer = self.time_since_placed - self.arrow_object_lastshot
-
         self._handle_entity_targeting(entity_object_group) 
 
-        if entity_distance <= self.attack_radius and arrow_cooldown_timer >= self.arrow_cooldown and self.arrow_object is None:
-            self.arrow_object = Arrow(self.rect, self.targeted_entity_object)
-            self.arrow_object_group.add(self.arrow_object)
-            self.arrow_object_lastshot = self.time_since_placed 
-                
-        if self.arrow_object:
-            self.arrow_object_group.update(delta_time)
-            self.arrow_object_group.draw(screen_surface)
-            if self.arrow_object.IS_ENTITY_KILLED:
-                self.kill_count += 1
-                self.upgrade_time = self.upgrade_time + 2000
-            if self.arrow_object.IS_COLLIDED or self.arrow_object.IS_NO_OBJECT:
-                self.arrow_object = None
-    
-    def _handle_entity_targeting(self, entity_object_group):
-        self.entity_list = [entity for entity in entity_object_group if self.position.distance_to(entity.rect.center) <= self.attack_radius]
+        if self.arrow_multishot:
+            self._handle_multishot_attack()
+        elif not self.arrow_multishot:
+            self._handle_singleshot_attack()
 
-        if self.entity_list:
+        if self.arrow_object:
+            self._handle_arrow_status(delta_time, screen_surface)
+ 
+    def _handle_singleshot_attack(self):
+        if self.arrow_cooldown_timer >= self.arrow_cooldown:
+            self.create_arrow_object(self.targeted_entity_object)
+    
+    def _handle_multishot_attack(self):
+        if not isinstance(self.targeted_entity_object, list):
+            self._handle_singleshot_attack()
+        else:
+            for entities in self.targeted_entity_object:
+                if self.arrow_cooldown_timer >= self.arrow_cooldown:
+                    self.create_arrow_object(entities)
+    
+    def _handle_arrow_status(self,delta_time, screen_surface):
+        self.arrow_object_group.update(delta_time)
+        self.arrow_object_group.draw(screen_surface)
+
+        if self.arrow_object.IS_ENTITY_KILLED:
+            self.kill_count += 1
+            self.upgrade_time = self.upgrade_time + 2000
+        elif self.arrow_object.IS_COLLIDED or self.arrow_object.IS_NO_OBJECT:
+            self.arrow_object = None
+
+    def _handle_entity_targeting(self, entity_object_group):
+        self.entity_list = []
+
+        for entity in entity_object_group:
+            if self.position.distance_to(entity.rect.center) <= self.attack_radius:
+                self.entity_list.append(entity)
+        
+        if self.entity_list and self.arrow_multishot:
+            self.targeted_entity_object = self.entity_list[:2]
+        elif self.entity_list and not self.arrow_multishot:
             self.targeted_entity_object = self.entity_list[0]
         else:
-            self.targeted_entity_object = None
-        
-    def _change_animation_state(self, new_state):
-        if new_state in self.animation_frames and new_state != self.animation_state:
-            self.animation_state = new_state
-            self.animation_index = 0
-
-    def _get_animation_frame(self):
-        frames = self.animation_frames[self.animation_state][self.upgrade_level]
-        index = int(self.animation_index) % len(frames)
-
-        return frames[index]
+            self.targeted_entity_object = 0
     
     def _handle_tower_events(self, delta_time, screen_surface, mouse_pos, mouse_just_clicked):
         # Handle Time Base Upgrades
@@ -165,15 +183,30 @@ class ArcherTower(Tower):
         if self.anchor_rect.collidepoint(mouse_pos):
             self.show_tower_radius(screen_surface)
 
+    def _change_animation_state(self, new_state):
+        if new_state in self.animation_frames and new_state != self.animation_state:
+            self.animation_state = new_state
+            self.animation_index = 0
+
+    def _get_animation_frame(self):
+        if not self.animation_frames or self.animation_state not in self.animation_frames:
+            return pygame.Surface((64, 64), pygame.SRCALPHA)
+        frames = self.animation_frames[self.animation_state][self.upgrade_level]
+        frame = frames[int(self.animation_index) % len(frames)]
+        return frame
+    
+    def create_arrow_object(self, entity_object):
+        self.arrow_object = Arrow(self.rect, entity_object, self.arrow_damage, self.arrow_speed)
+        self.arrow_object_group.add(self.arrow_object)
+        self.arrow_object_lastshot = self.time_since_placed 
+        
     def update(self, delta_time, screen_surface, entity_object_group,mouse_pos,mouse_just_clicked):
         # Class Timer
         if self.preview_mode:
             self.show_tower_radius(screen_surface)
-            pygame.draw.rect(screen_surface, (255,255,255), self.rect, 1)
             return
         
         self._handle_internal_timer(delta_time)
-
         self._handle_tower_events(delta_time,screen_surface, mouse_pos,mouse_just_clicked)
         self._handle_animation(delta_time)
         self._handle_attack(delta_time, screen_surface, entity_object_group)
@@ -185,15 +218,15 @@ class ArcherTower(Tower):
         self.rect.center = self.position
 
 class Arrow(pygame.sprite.Sprite):
-    def __init__(self, tower_rect, target_entity_object=None):
+    def __init__(self, tower_rect, target_entity_object=None, damage=15, speed=250):
         super().__init__()
         self.image_original = pygame.image.load(os.path.join('assets', 'ArcherTower','arrow.png'))
         self.image = self.image_original.copy()
         self.mask = pygame.mask.from_surface(self.image)
         self.position = pygame.Vector2(tower_rect.center)
         self.rect = self.image.get_frect(center = self.position)
-        self.speed = 250
-        self.damage = 15
+        self.speed = speed
+        self.damage = damage
 
         self.target_entity = target_entity_object 
 
@@ -241,9 +274,3 @@ class Arrow(pygame.sprite.Sprite):
     def update(self, delta_time):
         self._handle_arrow_logic(delta_time)
 
-"""
-Changes and Addition:
-Removed Upgrade and Created a Tower Events Function
-Created a tower timer and function to lessen the upgrade timer per kill
-
-"""

@@ -32,14 +32,14 @@ class Card(pygame.sprite.Sprite):
     
     def _handle_hover(self, delta_time, mouse_pos):
         if self.rect.collidepoint(mouse_pos) and not self.is_hover:
-            hover_position = pygame.Vector2(self.deck_position.x,self.deck_position.y - 100)
+            hover_position = pygame.Vector2(self.deck_position.x,self.deck_position.y - 200)
             clamp_factor = min(1.0, self.move_speed * delta_time)
             self.position -= (self.position - hover_position) * clamp_factor
             self.rect.center = self.position
             self.is_hover = True
         else:
             self.is_hover = False
-    
+ 
     def _handle_selected(self, mouse_pos):
         if self.is_selected:
             self.position = pygame.Vector2(mouse_pos[0], mouse_pos[1])
@@ -57,8 +57,9 @@ class Card(pygame.sprite.Sprite):
         self._handle_selected(mouse_pos)
         if not self.is_hover and not self.is_selected:
             self._update_card_position(delta_time)
+        if not self.is_selected:
+            self._handle_hover(delta_time, mouse_pos)
         
-
 class CardManager():
     def __init__(self):
         self.deck_width = 900
@@ -68,7 +69,7 @@ class CardManager():
         
         self.max_cards = 5
         self.cards_spawned = 0
-        self.card_spacing = 180  
+        self.card_spacing = 140  
         self.card_consumed = False
         self.card_returned = False
 
@@ -76,9 +77,6 @@ class CardManager():
         self.hide_deck = False
 
         self.deck_group = pygame.sprite.Group()
-        self.on_hand_card = {
-            'TowerType':'TowerID'
-        }
         self.selected_card = None
 
         self._spawn_cards()
@@ -102,7 +100,7 @@ class CardManager():
         
         # Set target positions for each card
         for i, card in enumerate(self.deck_group):
-            target_y = self.deck_surface_rect.centery - 60
+            target_y = self.deck_surface_rect.centery + 70
             card.deck_position = pygame.Vector2(
                 start_x + (i * self.card_spacing),
                 target_y
@@ -115,7 +113,7 @@ class CardManager():
         for i, card in enumerate(self.deck_group):
             card.deck_position = pygame.Vector2(
                 self.deck_surface_rect.centerx,
-                self.deck_surface_rect.centery - 60
+                self.deck_surface_rect.centery + 70
             )
         
     def _handle_selected_card(self, mouse_pos, mouse_just_clicked):
@@ -130,7 +128,6 @@ class CardManager():
             self.return_selected_card()
 
         return
-
 
     def _handle_deck(self, surface, delta_time, mouse_pos, mouse_just_clicked):
         if self.show_deck:

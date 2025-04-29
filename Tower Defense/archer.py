@@ -70,8 +70,7 @@ class ArcherTower(Tower):
 
         # Arrow Properties (specific to ArcherTower)
         self.arrow_object_group = pygame.sprite.Group()
-        self.arrow_object = None
-        self.arrow_cooldown = 500  # milliseconds
+        self.arrow_cooldown = 1000  # milliseconds
         self.arrow_damage = 15
         self.arrow_speed = 250
         self.arrow_object_lastshot = 0
@@ -134,8 +133,11 @@ class ArcherTower(Tower):
         elif not self.arrow_multishot:
             self._handle_singleshot_attack()
 
-        if self.arrow_object:
-            self._handle_arrow_status(delta_time, screen_surface)
+        if self.arrow_object_group:
+            self.arrow_object_group.update(delta_time)
+            self.arrow_object_group.draw(screen_surface)
+            for arrow in self.arrow_object_group:
+                self._handle_arrow_status(arrow)
  
     def _handle_singleshot_attack(self):
         if self.arrow_cooldown_timer >= self.arrow_cooldown:
@@ -149,15 +151,12 @@ class ArcherTower(Tower):
                 if self.arrow_cooldown_timer >= self.arrow_cooldown:
                     self.create_arrow_object(entities)
     
-    def _handle_arrow_status(self,delta_time, screen_surface):
-        self.arrow_object_group.update(delta_time)
-        self.arrow_object_group.draw(screen_surface)
-
-        if self.arrow_object.IS_ENTITY_KILLED:
-            self.kill_count += 1
-            self.upgrade_time = self.upgrade_time + 2000
-        elif self.arrow_object.IS_COLLIDED or self.arrow_object.IS_NO_OBJECT:
-            self.arrow_object = None
+    def _handle_arrow_status(self, arrow):
+        if arrow.get_arrow_status('active') is False or arrow.get_arrow_status('entity_killed'):
+            if arrow.get_arrow_status('entity_killed'):
+                self.kill_count += 1
+                self.upgrade_time += 2000
+            arrow.kill()
 
     def _handle_entity_targeting(self, entity_object_group):
         self.entity_list = []
@@ -174,6 +173,7 @@ class ArcherTower(Tower):
             self.targeted_entity_object = 0
     
     def _handle_tower_events(self, delta_time, screen_surface, mouse_pos, mouse_just_clicked):
+        self._handle_internal_timer(delta_time)
         # Handle Time Base Upgrades
         if self.upgrade_time >= self.upgrade_time_threshold:
             self.upgrade_time = 0
@@ -200,22 +200,21 @@ class ArcherTower(Tower):
         self.arrow_object_group.add(self.arrow_object)
         self.arrow_object_lastshot = self.time_since_placed 
         
-    def update(self, delta_time, screen_surface, entity_object_group,mouse_pos,mouse_just_clicked):
-        # Class Timer
-        if self.preview_mode:
-            self.show_tower_radius(screen_surface)
-            return
-        
-        self._handle_internal_timer(delta_time)
-        self._handle_tower_events(delta_time,screen_surface, mouse_pos,mouse_just_clicked)
-        self._handle_animation(delta_time)
-        self._handle_attack(delta_time, screen_surface, entity_object_group)
-    
     def update_position(self, position=pygame.Vector2(0,0)):
         position.x = position.x * 64 + 32
         position.y = position.y * 64
         self.position.update(position)
         self.rect.center = self.position
+
+    def update(self, delta_time, screen_surface, entity_object_group,mouse_pos,mouse_just_clicked):
+        # Class Timer
+        if self.preview_mode:
+            self.show_tower_radius(screen_surface)
+            return
+    
+        self._handle_tower_events(delta_time,screen_surface, mouse_pos,mouse_just_clicked)
+        self._handle_animation(delta_time)
+        self._handle_attack(delta_time, screen_surface, entity_object_group)
 
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, tower_rect, target_entity_object=None, damage=15, speed=250):
@@ -223,53 +222,59 @@ class Arrow(pygame.sprite.Sprite):
         self.image_original = pygame.image.load(os.path.join('assets', 'ArcherTower','arrow.png'))
         self.image = self.image_original.copy()
         self.mask = pygame.mask.from_surface(self.image)
-        self.position = pygame.Vector2(tower_rect.center)
+        self.reference_position = pygame.Vector2(tower_rect.center)
+        self.position = pygame.Vector2(self.reference_position)
         self.rect = self.image.get_frect(center = self.position)
         self.speed = speed
         self.damage = damage
-
         self.target_entity = target_entity_object 
 
-        self.IS_COLLIDED = False
-        self.IS_NO_OBJECT = False
+        self.IS_ACTIVE = True
         self.IS_ENTITY_KILLED = False
 
     def _handle_arrow_logic(self, delta_time):
         if self.target_entity and self.target_entity.alive():
-            self.IS_NO_OBJECT = False
+            self.IS_ACTIVE = True
+            self.IS_ENTITY_KILLED = False
 
-            # Calculate Direction for Aiming
             arrow_position = pygame.Vector2(self.rect.midtop)
             arrow_direction = (self.target_entity.rect.center - arrow_position).normalize()
 
-            # Rotate Arrow
             arrow_rotation_angle = math.degrees(math.atan2(-arrow_direction.y, arrow_direction.x)) - 90
             self.image = pygame.transform.rotate(self.image_original, arrow_rotation_angle)
             self.mask = pygame.mask.from_surface(self.image)
 
-            # Handle Arrow Logic (Movement & Collision)
-            self._handle_arrow_collision(self.target_entity)
             self._handle_arrow_movement(arrow_direction ,delta_time)
+            self._handle_arrow_max_distance()
+            self._handle_arrow_collision()
         else:
-            self.kill()
-            self.IS_NO_OBJECT = True
+            self.IS_ACTIVE = False
     
     def _handle_arrow_movement(self, arrow_direction, delta_time):
         self.position += arrow_direction * self.speed * delta_time
         self.rect.center = self.position
     
-    def _handle_arrow_collision(self, entity_object):
-        if entity_object:
-            offset_x = entity_object.rect.x - self.rect.x
-            offset_y = entity_object.rect.y - self.rect.y
-            overlap_point = self.mask.overlap(entity_object.mask, (offset_x, offset_y))
+    def _handle_arrow_collision(self):
+        offset = (self.target_entity.rect.x - self.rect.x, self.target_entity.rect.y - self.rect.y)
 
-            if overlap_point:
-                entity_object.take_damage(self.damage)
-                if entity_object.killed:
-                    self.IS_ENTITY_KILLED = True
-                self.kill()
-                self.IS_COLLIDED = True
+        overlap_point = self.mask.overlap(self.target_entity.mask, offset)
+
+        if overlap_point:
+            self.target_entity.take_damage(self.damage)
+            if self.target_entity.killed:
+                self.IS_ENTITY_KILLED = True
+            self.IS_ACTIVE = False
+
+    def _handle_arrow_max_distance(self):
+        distance = self.reference_position.distance_to(self.position)
+        if distance >= 250:
+            self.IS_ACTIVE = False
+        
+    def get_arrow_status(self, state):
+        if state == 'active':
+            return self.IS_ACTIVE
+        elif state == 'entity_killed':
+            return self.IS_ENTITY_KILLED
             
     def update(self, delta_time):
         self._handle_arrow_logic(delta_time)

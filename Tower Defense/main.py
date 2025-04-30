@@ -31,23 +31,22 @@ class Game():
         self.TILEMAP_INIT = False
 
         # Game Logic Properties
-        self.ENTITY_SPAWNER = EntitySpawner()
-        self.WAVE = 0
-        self.WAVE_START = False
-        self.ENTITY_MAX_SPAWN = 1
-        self.ENTITY_SPAWN_EVENT = pygame.event.custom_type()
-        pygame.time.set_timer(self.ENTITY_SPAWN_EVENT, 1000)
+        self.ENTITY_SPAWNER = EntitySpawner(self.ENTITY_SPRITE_GROUP)
 
         # Card Properties
         self.CARD_MANAGER = CardManager()
         self.CARD_TOWER = None
 
-    def _handle_game_events(self):
+
+    def _handle_game_events(self, keys):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self._GAME_RUN = False
-            if event.type == self.ENTITY_SPAWN_EVENT: 
-                self._handle_entity_spawning()
+        
+        if keys[pygame.K_s]:
+            self.ENTITY_SPAWNER.handle_start_wave()
+        
+        self.ENTITY_SPAWNER.handle_spawn_event()
         
     def _handle_game_timer(self, delta_time):
         self._GAME_TIMER += delta_time * 1000
@@ -56,11 +55,6 @@ class Game():
         for col in range(len(self.TILEMAP)):
             for row in range(len(self.TILEMAP[0])):
                 pygame.draw.rect(self._SCREEN_SURFACE, (255,255,255), (row * self.GRID_TILESIZE, col * self.GRID_TILESIZE, self.GRID_TILESIZE, self.GRID_TILESIZE), 1)
-    
-    def _handle_entity_spawning(self):
-        if len(self.ENTITY_SPRITE_GROUP) <= self.ENTITY_MAX_SPAWN:
-            ENTITY_slime = Slime()
-            self.ENTITY_SPRITE_GROUP.add(ENTITY_slime)
 
     def _handle_card_manager_updates(self, mouse_pos, mouse_just_clicked):
         if mouse_just_clicked[0]:
@@ -107,20 +101,22 @@ class Game():
 
             mouse_pos = pygame.mouse.get_pos()
             mouse_just_clicked = pygame.mouse.get_just_pressed()
+            keys = pygame.key.get_pressed()
 
             self._handle_game_timer(delta_time)
-            self._handle_game_events()
+            self._handle_game_events(keys)
 
             # Clear the screen first
             self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
-            self._handle_game_grid()
+            #self._handle_game_grid()
 
             self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
             self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)
 
             self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP,mouse_pos,mouse_just_clicked)
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
-
+            
+            self.ENTITY_SPAWNER.update(delta_time, self._SCREEN_SURFACE)
             self.ENTITY_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE)
             self.ENTITY_SPRITE_GROUP.draw(self._SCREEN_SURFACE)  
             # Update display once after all drawing is complete

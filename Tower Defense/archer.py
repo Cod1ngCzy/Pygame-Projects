@@ -20,7 +20,7 @@ class Tower(pygame.sprite.Sprite):
 
         self.time_since_placed = 0
         self.upgrade_time = 0
-        self.upgrade_time_threshold = 1000
+        self.upgrade_time_threshold = 120000
         self.kill_count = 0
 
         self.show_rect = False

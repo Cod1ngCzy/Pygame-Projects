@@ -1,6 +1,6 @@
 from settings import *
 from archer import ArcherTower
-from enemy import Enemy
+from enemy import Slime, EntitySpawner
 from card import Card, CardManager
 
 class Game():
@@ -31,9 +31,10 @@ class Game():
         self.TILEMAP_INIT = False
 
         # Game Logic Properties
+        self.ENTITY_SPAWNER = EntitySpawner()
         self.WAVE = 0
         self.WAVE_START = False
-        self.ENTITY_MAX_SPAWN = 2
+        self.ENTITY_MAX_SPAWN = 1
         self.ENTITY_SPAWN_EVENT = pygame.event.custom_type()
         pygame.time.set_timer(self.ENTITY_SPAWN_EVENT, 1000)
 
@@ -58,7 +59,7 @@ class Game():
     
     def _handle_entity_spawning(self):
         if len(self.ENTITY_SPRITE_GROUP) <= self.ENTITY_MAX_SPAWN:
-            ENTITY_slime = Enemy()
+            ENTITY_slime = Slime()
             self.ENTITY_SPRITE_GROUP.add(ENTITY_slime)
 
     def _handle_card_manager_updates(self, mouse_pos, mouse_just_clicked):
@@ -116,7 +117,6 @@ class Game():
 
             self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
             self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)
-
 
             self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP,mouse_pos,mouse_just_clicked)
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)

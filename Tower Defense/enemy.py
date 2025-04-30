@@ -1,25 +1,56 @@
 from settings import *
 
-class Enemy(pygame.sprite.Sprite):
+
+class Entity(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
 
-        self.ENEMY_walk_frame = self._get_image_tileset(os.path.join('assets', 'Enemy', 'slime','down_walk')) 
-        self.ENEMY_death_frame = self._get_image_tileset(os.path.join('assets', 'Enemy', 'slime','death')) 
+        self.position = pygame.Vector2(0,0)
+        self.image = None
+        self.rect = None
+
+        self.mask = pygame.mask.from_surface(self.image) if self.image else None
+        self.mask_surface = self.mask.to_surface(self.image) if self.mask else None
+        self.mask_surface.set_colorkey((0,0,0)) if self.mask_surface else None
 
         self.animation_speed = 5
-        self.animation_index_Walk = 0
-        self.animation_index_Death = 0
+        self.animation_index = 0
+        self.animation_frames = {}
+        self.animation_state = None
+    
+    def _load_animation_frames(self, base_path):
+        sprite_images = []
+        sprite_image_directory = os.listdir(os.path.join(base_path))
+
+        for image in sprite_image_directory:
+            image_surface = pygame.image.load(os.path.join(base_path, image))
+            sprite_images.append(image_surface)
         
+        return sprite_images
+
+    def _handle_sprite_animation(self, delta_time):
+        self.animation_index += self.animation_speed * delta_time
+        self.animation_index %= len(self.animation_frames[self.animation_state])
+        self.image = self._get_animation_frame()
+    
+    def _get_animation_frame(self, new_state=None):
+        if new_state is None:
+            return self.animation_frames[self.animation_state][int(self.animation_index)]
+
+class Slime(Entity):
+    def __init__(self):
+        super().__init__()
+
+        self.animation_frames = {
+            'walk' : self._load_animation_frames(os.path.join('assets', 'Enemy', 'slime', 'walk')),
+            'death' : self._load_animation_frames(os.path.join('assets', 'Enemy', 'slime', 'death'))
+        }
+        self.animation_state = 'walk'
+
         self.position = pygame.Vector2(100,200)
-        self.image = self.ENEMY_walk_frame[self.animation_index_Walk]
+        self.image = self.animation_frames[self.animation_state][self.animation_index]
         self.rect = self.image.get_frect(center = (self.position))
 
-        self.mask = pygame.mask.from_surface(self.image)
-        self.mask_surface = self.mask.to_surface()
-        self.mask_surface.set_colorkey((0,0,0))
-
-        self.is_hit = False
         self.hit_timer = 0
         self.hit_duration = 0.15
         self.hit_flash_color = (255,0,0)
@@ -27,36 +58,40 @@ class Enemy(pygame.sprite.Sprite):
         self.speed = 100
         self.health = 100
 
-        self.killed = False
+        self.is_hit = False
+        self.is_alive = True
+    
+    def _handle_sprite_animation(self, delta_time):
+        super()._handle_sprite_animation(delta_time)
 
-    def _get_image_tileset(self, path_to_image):
-        sprite_image_paths = os.listdir(path_to_image)
-        sprite_images = [pygame.image.load(os.path.join(path_to_image,sprite)) for sprite in sprite_image_paths]
-        return sprite_images
+        if self.animation_state == 'walk':
+            if int(self.animation_index) >= 2 and int(self.animation_index) <= 4:
+                self.position.x += self.speed * delta_time
+                self.rect.center = self.position
+        elif self.animation_state == 'death':
+            if int(self.animation_index) >= len(self.animation_frames[self.animation_state]) - 1:
+                self.kill()
+        
+        self._update_mask_surface()
+    
+    def _get_animation_frame(self, new_state=None):
+        super()._get_animation_frame()
 
-    def _handle_animation_walk(self, delta_time):
-        self.animation_index_Walk += self.animation_speed * delta_time
+        if new_state in self.animation_frames and new_state != self.animation_state:
+            self.animation_state = new_state
+            self.animation_index = 0
 
-        self.animation_index_Walk %= len(self.ENEMY_walk_frame)
+        return self.animation_frames[self.animation_state][int(self.animation_index)]
 
-        self.image = self.ENEMY_walk_frame[int(self.animation_index_Walk)]
+    def _handle_entity_states(self):
+        if self.health <= 0:
+            self.is_alive = False
+            self.animation_state = 'death'
+    
+    def _update_mask_surface(self):
         self.mask = pygame.mask.from_surface(self.image)
         self.mask_surface = self.mask.to_surface()
         self.mask_surface.set_colorkey((0,0,0))
-
-        if int(self.animation_index_Walk) >= 2 and int(self.animation_index_Walk) <= 4:
-            self.position.x += self.speed * delta_time
-
-            self.rect.center = self.position
-    
-    def _handle_animation_death(self, delta_time):
-        self.animation_index_Death += 5 * delta_time
-        self.animation_index_Death %= len(self.ENEMY_death_frame)
-
-        self.image = self.ENEMY_death_frame[int(self.animation_index_Death)]
-        
-        if int(self.animation_index_Death) >= len(self.ENEMY_death_frame) - 1:
-            self.kill()
     
     def _handle_damage_animation(self, delta_time):
         self.hit_timer += delta_time
@@ -80,15 +115,24 @@ class Enemy(pygame.sprite.Sprite):
         self.is_hit = True
         self.hit_timer = 0
 
+    def get_entity_status(self, state=None):
+        if state is None:
+            return None
+        elif state == 'is_alive':
+            return self.is_alive
+        
     def update(self, delta_time, screen_surface):
-        if self.health <= 0:
-            self.killed = True
-            self._handle_animation_death(delta_time)
-        else:
-            self._handle_animation_walk(delta_time)
+        self._handle_entity_states()
+        self._handle_sprite_animation(delta_time)
 
         if self.is_hit:
             self._handle_damage_animation(delta_time)
 
-        # Get Slime Rect
-        pygame.draw.rect(screen_surface, (255,255,255), self.rect, 1)
+class EntitySpawner():
+    def __init__(self):
+
+        self.image = pygame.image.load(os.path.join('assets', 'Enemy', 'SpawnCircle.png'))
+        self.rect = self.image.get_frect(center = (0,0))
+
+    def update(self):
+        pass

@@ -16,7 +16,6 @@ class Tower(pygame.sprite.Sprite):
         self.rect = None
 
         self.attack_radius = 150
-        self._create_radius_surface()
 
         self.time_since_placed = 0
         self.upgrade_time = 0
@@ -44,15 +43,15 @@ class Tower(pygame.sprite.Sprite):
 
     def _create_radius_surface(self):
         self.attack_radius_surface = pygame.Surface((self.attack_radius*2, self.attack_radius*2), pygame.SRCALPHA)
-        self.attack_radius_rect = self.attack_radius_surface.get_frect(center=(0,0))
-        pygame.draw.circle(self.attack_radius_surface, (255, 0, 0, 75), 
-                        (self.attack_radius, self.attack_radius), self.attack_radius)
-        pygame.draw.circle(self.attack_radius_surface, (0, 0, 0, 255), 
-                        (self.attack_radius, self.attack_radius), self.attack_radius, 2)
+        center_point = (self.attack_radius, self.attack_radius)
+        pygame.draw.circle(self.attack_radius_surface, (255, 0, 0, 75), center_point, self.attack_radius)
+        pygame.draw.circle(self.attack_radius_surface, (0, 0, 0, 255), center_point, self.attack_radius, 2)
         
+        self.attack_radius_rect = self.attack_radius_surface.get_rect()
+
     def show_tower_radius(self, screen_surface):
-        self.attack_radius_rect.center = (self.rect.centerx, self.rect.centery + 30)
-        screen_surface.blit(self.attack_radius_surface, self.attack_radius_rect)
+        self.attack_radius_rect.center = self.rect.center
+        screen_surface.blit(self.attack_radius_surface, (self.attack_radius_rect.x, self.attack_radius_rect.y + 30))
 
     def show_tower_rect(self, screen_surface):
         if self.show_rect:
@@ -68,6 +67,7 @@ class ArcherTower(Tower):
             'idle': self._load_spritesheet_animations('assets/ArcherTower/IdleAnimation', 'idle'),
             'upgrade': self._load_spritesheet_animations('assets/ArcherTower/UpgradeAnimation', 'upgrade')
         }
+        self._create_radius_surface()
 
         self.image = pygame.image.load(os.path.join('assets','ArcherTower', 'basetower.png'))
         self.rect = self.image.get_frect(center=self.position)
@@ -159,11 +159,7 @@ class ArcherTower(Tower):
             arrow.kill()
 
     def _handle_entity_targeting(self, entity_object_group):
-        self.entity_list = []
-
-        for entity in entity_object_group:
-            if self.position.distance_to(entity.rect.center) <= self.attack_radius:
-                self.entity_list.append(entity)
+        self.entity_list = [entities for entities in entity_object_group if self.position.distance_to(entities.rect.center) <= self.attack_radius + 30]
         
         if self.entity_list and self.arrow_multishot:
             self.targeted_entity_object = self.entity_list[:2]

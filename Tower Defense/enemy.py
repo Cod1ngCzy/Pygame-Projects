@@ -36,8 +36,8 @@ class Entity(pygame.sprite.Sprite):
         if new_state is None:
             return self.animation_frames[self.animation_state][int(self.animation_index)]
 
-class EntitySpawner():
-    def __init__(self, entity_group,override = False):
+class EntitySpawner(Entity):
+    def __init__(self, entity_group):
 
         self.animation_speed = 5
         self.animation_index = 0
@@ -48,8 +48,9 @@ class EntitySpawner():
             'close': self._load_animation_frames(os.path.join('assets', 'ParticleEffect', 'Portal', 'Close')),
             'invi' : [pygame.Surface((64,64), pygame.SRCALPHA)]
         }
+
         self.image = self.animation_frames['static'][int(self.animation_index)]
-        self.rect = self.image.get_frect(topleft = (0 * 64,3 * 64))
+        self.rect = self.image.get_frect(topleft = (0 * 64,5 * 64))
 
         self.last_time_since_spawn = 0
         self.last_time_since_duration = 0
@@ -60,28 +61,15 @@ class EntitySpawner():
         self.Entity_Group = entity_group
         self.Max_Entity_Spawned = 5
 
-        self.wave_end = True
+        self.spawn_end = True
 
-    def _load_animation_frames(self, base_path):
-        sprite_images = []
-        sprite_image_directory = os.listdir(os.path.join(base_path))
-
-        for image in sprite_image_directory:
-            image_surface = pygame.image.load(os.path.join(base_path, image))
-            sprite_images.append(image_surface)
-        
-        return sprite_images
-    
     def _handle_sprite_animation(self, delta_time):
         self._handle_animation_states()
 
-        self.animation_index += self.animation_speed * delta_time
-        self.animation_index %= len(self.animation_frames[self.animation_state])
-        self.image = self._get_animation_frame()
+        super()._handle_sprite_animation(delta_time)
     
     def _get_animation_frame(self, new_state=None):
-        if new_state is None:
-            return self.animation_frames[self.animation_state][int(self.animation_index)]
+        super()._get_animation_frame()
         
         if new_state in self.animation_frames and new_state != self.animation_state:
             self.animation_state = new_state
@@ -100,15 +88,13 @@ class EntitySpawner():
     def handle_spawn_event(self):
         current_time = pygame.time.get_ticks()
 
-        if self.wave_end:
+        if self.spawn_end:
             return
 
         spawn_time = current_time - self.last_time_since_spawn
         spawn_end_time = (current_time - self.last_time_since_duration) 
 
-        print(spawn_time, spawn_end_time)
-
-        if spawn_time >= self.Entity_Spawn_Cooldown and not self.wave_end:
+        if spawn_time >= self.Entity_Spawn_Cooldown and not self.spawn_end:
             if self.Entity_Spawned < self.Max_Entity_Spawned:
                 # Spawn a new entity (e.g., Slime)
                 Entity = Slime(self.rect.center)
@@ -118,12 +104,12 @@ class EntitySpawner():
         
         if spawn_end_time >= self.Entity_Spawn_Duration:
             self.last_time_since_duration = current_time
-            self.wave_end = True
+            self.spawn_end = True
             self.image = self._get_animation_frame('close')
     
     def handle_start_wave(self):
         current_time = pygame.time.get_ticks()
-        self.wave_end = False
+        self.spawn_end = False
         self.last_time_since_spawn = current_time
         self.last_time_since_duration = current_time
         self.Entity_Spawned = 0
@@ -221,7 +207,6 @@ class Slime(Entity):
     def update(self, delta_time, screen_surface):
         self._handle_entity_states()
         self._handle_sprite_animation(delta_time)
-
 
         if self.is_hit:
             self._handle_damage_animation(delta_time)

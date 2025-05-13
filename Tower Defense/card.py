@@ -67,7 +67,7 @@ class CardManager():
         self.deck_surface = pygame.Surface((self.deck_width, self.deck_height), pygame.SRCALPHA)
         self.deck_surface_rect = self.deck_surface.get_frect(center=(1024 // 2, 700))
         
-        self.max_cards = 5
+        self.max_cards = 3
         self.cards_spawned = 0
         self.card_spacing = 140  
         self.card_consumed = False

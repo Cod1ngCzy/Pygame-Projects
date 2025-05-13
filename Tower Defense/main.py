@@ -2,6 +2,7 @@ from settings import *
 from archer import ArcherTower
 from enemy import Slime, EntitySpawner
 from card import Card, CardManager
+from gui import GUIManager
 
 class Game():
     def __init__(self):
@@ -37,6 +38,8 @@ class Game():
         self.CARD_MANAGER = CardManager()
         self.CARD_TOWER = None
 
+        # GUI Properties
+        self.GUI_MANAGER = GUIManager()
 
     def _handle_game_events(self, keys):
         for event in pygame.event.get():
@@ -113,12 +116,15 @@ class Game():
             self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
             self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)
 
-            self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP,mouse_pos,mouse_just_clicked)
-            self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
-            
             self.ENTITY_SPAWNER.update(delta_time, self._SCREEN_SURFACE)
             self.ENTITY_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE)
             self.ENTITY_SPRITE_GROUP.draw(self._SCREEN_SURFACE)  
+
+            self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP,mouse_pos,mouse_just_clicked)
+            self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
+
+            self.GUI_MANAGER.handle_gui(self._SCREEN_SURFACE)
+    
             # Update display once after all drawing is complete
             pygame.display.update()
         

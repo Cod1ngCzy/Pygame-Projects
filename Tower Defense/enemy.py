@@ -52,14 +52,16 @@ class EntitySpawner(Entity):
         self.image = self.animation_frames['static'][int(self.animation_index)]
         self.rect = self.image.get_frect(topleft = (0 * 64,5 * 64))
 
+        self.spawn_position = self.rect.center
+
         self.last_time_since_spawn = 0
         self.last_time_since_duration = 0
-        self.Entity_Spawned = 0
-        self.Entity_Spawn_Cooldown = 2000
-        self.Entity_Spawn_Duration = 10000
-        self.Spawn_Start_Time = None
-        self.Entity_Group = entity_group
-        self.Max_Entity_Spawned = 5
+        self.spawn_cooldown = 2000
+        self.spawn_duration = 10000
+        self.spawn_start_time = None
+        self.entity = 0
+        self.entity_Group = entity_group
+        self.max_entity = 5
 
         self.spawn_end = True
 
@@ -94,25 +96,27 @@ class EntitySpawner(Entity):
         spawn_time = current_time - self.last_time_since_spawn
         spawn_end_time = (current_time - self.last_time_since_duration) 
 
-        if spawn_time >= self.Entity_Spawn_Cooldown and not self.spawn_end:
-            if self.Entity_Spawned < self.Max_Entity_Spawned:
-                # Spawn a new entity (e.g., Slime)
-                Entity = Slime(self.rect.center)
-                self.Entity_Group.add(Entity)
-                self.Entity_Spawned += 1
+        if spawn_time >= self.spawn_cooldown and not self.spawn_end:
+            if self.entity < self.max_entity:
+                self._generate_entity()
                 self.last_time_since_spawn = current_time  # Reset spawn timer after entity is spawned
         
-        if spawn_end_time >= self.Entity_Spawn_Duration:
+        if spawn_end_time >= self.spawn_duration:
             self.last_time_since_duration = current_time
             self.spawn_end = True
             self.image = self._get_animation_frame('close')
     
-    def handle_start_wave(self):
+    def _generate_entity(self):
+        Entity = Slime(self.spawn_position)
+        self.entity_Group.add(Entity)
+        self.entity += 1
+    
+    def start_wave(self):
         current_time = pygame.time.get_ticks()
         self.spawn_end = False
         self.last_time_since_spawn = current_time
         self.last_time_since_duration = current_time
-        self.Entity_Spawned = 0
+        self.entity = 0
         self.image = self._get_animation_frame('open')
 
     def update(self, delta_time, screen_surface):

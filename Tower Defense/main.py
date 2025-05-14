@@ -47,7 +47,7 @@ class Game():
                 self._GAME_RUN = False
         
         if keys[pygame.K_s]:
-            self.ENTITY_SPAWNER.handle_start_wave()
+            self.ENTITY_SPAWNER.start_wave()
         
         self.ENTITY_SPAWNER.handle_spawn_event()
         

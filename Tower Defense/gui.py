@@ -21,14 +21,32 @@ class GUI():
 class GUIManager():
     def __init__(self):
         # Buttons
-        self.BUTTON_setting = Button('SettingIcon', (1000,30))
+        self.BUTTON_setting = Button('SettingIcon', (990,45))
         self.BUTTON_continue = Button('ContinueIcon', (1024 // 2,500 // 2), (200,100))
         self.BUTTON_mainmenu = Button('MainMenuIcon', (1024 // 2,700 // 2), (200,100))
         self.BUTTON_restart = Button('RestartIcon', (1024 // 2,900 // 2), (200,100))
 
-        self.mainmenu_surface = pygame.Surface((1024,768), pygame.SRCALPHA)
-        self.mainmenu_rect = self.mainmenu_surface.get_frect(topleft = (0,0))
+        self.mainmenu_surface = pygame.image.load(os.path.join('assets', 'GUI', 'MenuSurface.png'))
+        self.mainmenu_surface = pygame.transform.scale(self.mainmenu_surface, (1024,768))
+        self.mainmenu_rect = self.mainmenu_surface.get_frect(center = (1024 // 2,768 // 2))
         self.is_mainmenu_active = False
+
+        self.healthbar_status = 'Full'
+        self.healthbar_surface = {
+            'Full':pygame.image.load(os.path.join('assets', 'GUI', 'HealthBar', 'Full.png')),
+            'Half':pygame.image.load(os.path.join('assets', 'GUI', 'HealthBar', 'Half.png')),
+            'Low': pygame.image.load(os.path.join('assets', 'GUI', 'HealthBar', 'Low.png')),
+            'Empty':pygame.image.load(os.path.join('assets', 'GUI', 'HealthBar', 'Empty.png'))
+        }
+        self.healthbar_surface[self.healthbar_status] = pygame.transform.scale(self.healthbar_surface[self.healthbar_status], (250,80))
+        self.healthbar_rect = self.healthbar_surface[self.healthbar_status].get_frect(topleft = (10,10))
+
+        self.level_status = 0
+        self.level_surface = {
+            0 : pygame.image.load(os.path.join('assets', 'GUI', 'LevelIcon', 'LVL0','1.png'))
+        }
+        self.level_surface[self.level_status] = pygame.transform.scale(self.level_surface[self.level_status], (150, 45))
+        self.level_rect = self.level_surface[self.level_status].get_frect(center = (1024 // 2,55))
 
     def _handle_gui_inputs(self):
         mouse_click = pygame.mouse.get_pressed()
@@ -52,13 +70,14 @@ class GUIManager():
         self._handle_gui_inputs()
         self._handle_active_state()
 
+        screen_surface.blit(self.healthbar_surface[self.healthbar_status], self.healthbar_rect)
+        screen_surface.blit(self.level_surface[self.level_status], self.level_rect)
+        screen_surface.blit(self.BUTTON_setting.get_surface(), self.BUTTON_setting.get_rect())
         if self.is_mainmenu_active:
-            self.mainmenu_surface.fill((255, 255, 255, 150))  # RGBA (Red, Green, Blue, Alpha)
             screen_surface.blit(self.mainmenu_surface, self.mainmenu_rect)
             screen_surface.blit(self.BUTTON_mainmenu.get_surface(), self.BUTTON_mainmenu.get_rect())
             screen_surface.blit(self.BUTTON_restart.get_surface(), self.BUTTON_restart.get_rect())
             screen_surface.blit(self.BUTTON_continue.get_surface(), self.BUTTON_continue.get_rect())
-        screen_surface.blit(self.BUTTON_setting.get_surface(), self.BUTTON_setting.get_rect())
 
 class Button(GUI):
     def __init__(self, path_to_image, position, scale = (42,42)):

@@ -1,25 +1,13 @@
 from settings import *
+from game import Game
 from archer import ArcherTower
 from enemy import Slime, EntitySpawner
 from card import Card, CardManager
 from gui import GUIManager
 
-class Game():
+class TowerDefense(Game):
     def __init__(self):
-        pygame.init()
-        pygame.display.set_caption('Tower Defense')
-        self._SCREEN_WIDTH = 1024
-        self._SCREEN_HEIGHT = 768
-        self._SCREEN_SURFACE = pygame.display.set_mode((self._SCREEN_WIDTH, self._SCREEN_HEIGHT))
-        self._SCREEN_FILLCOLOR = (50,50,50)
-
-        # Game Clock
-        self._GAME_CLOCK = pygame.time.Clock()
-        self._GAME_TIMER = 0
-
-        # Running Flag
-        self._GAME_RUN = True
-
+        super().__init__()
         self.TOWER_SPRITE_GROUP = pygame.sprite.Group() 
         self.TOWER_ENTITIES = {}
         self.ENTITY_SPRITE_GROUP = pygame.sprite.Group()
@@ -29,7 +17,6 @@ class Game():
         self.GRID_WIDTH = self._SCREEN_WIDTH // self.GRID_TILESIZE
         self.GRID_HEIGHT = self._SCREEN_HEIGHT // self.GRID_TILESIZE
         self.TILEMAP = [[0 for _ in range(self.GRID_WIDTH)] for _ in range(self.GRID_HEIGHT)]
-        self.TILEMAP_INIT = False
 
         # Game Logic Properties
         self.ENTITY_SPAWNER = EntitySpawner(self.ENTITY_SPRITE_GROUP)
@@ -42,17 +29,12 @@ class Game():
         self.GUI_MANAGER = GUIManager()
 
     def _handle_game_events(self, keys):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self._GAME_RUN = False
+        super()._handle_game_events()
         
         if keys[pygame.K_s]:
             self.ENTITY_SPAWNER.start_wave()
         
         self.ENTITY_SPAWNER.handle_spawn_event()
-        
-    def _handle_game_timer(self, delta_time):
-        self._GAME_TIMER += delta_time * 1000
 
     def _handle_game_grid(self):
         for col in range(len(self.TILEMAP)):
@@ -131,5 +113,5 @@ class Game():
         pygame.quit()
 
 if __name__ == "__main__":
-    GAME = Game()
+    GAME = TowerDefense()
     GAME.run()

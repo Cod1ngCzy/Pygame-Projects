@@ -5,7 +5,7 @@ from enemy import Slime, EntitySpawner
 from card import Card, CardManager
 from gui import GUIManager
 
-class TowerDefense(Game):
+class TowerDefense(Game, TileMapManager):
     def __init__(self):
         super().__init__()
         self.TOWER_SPRITE_GROUP = pygame.sprite.Group() 
@@ -27,6 +27,39 @@ class TowerDefense(Game):
 
         # GUI Properties
         self.GUI_MANAGER = GUIManager()
+
+
+        self.TILEMAP = self._load_tilemap(os.path.join('assets','Levels','tilemap.json'))    
+        self.tile_images = self._handle_tile_image(os.path.join('assets', 'TileSet', '1 Tiles'))
+        self.object_images = self._handle_tile_image(os.path.join('assets', 'TileSet', '2 Objects', '1 Shadow'))
+
+    def _handle_tile_image_draw(self):
+        for row,tiles in enumerate(self.TILEMAP['tile']):
+            for col,tile in enumerate(tiles):
+                if tile > 0:
+                    tile_surface = self.tile_images[tile].get('tile_surface')
+                    tile_surface = pygame.transform.scale(tile_surface, (64,64))
+                    self._SCREEN_SURFACE.blit(tile_surface, (col * 64, row * 64))
+
+        for row,objects in enumerate(self.TILEMAP['object']):
+            for col,object in enumerate(objects):
+                if object > 0:
+                    object_surface = self.object_images[object].get('tile_surface')
+                    object_surface = pygame.transform.scale(object_surface, (64,64))
+                    self._SCREEN_SURFACE.blit(object_surface, (col * 64, row * 64))
+    
+    def _handle_tile_image(self, path):
+        images = self._get_tile_images(path)
+        tile_images = {}
+
+        for i, (tile_name, tile_surface) in enumerate(images.items()):
+            tile_images[i + 1] = {
+                'tile_name': tile_name,
+                'tile_surface': tile_surface,
+                'tile_rect' : tile_surface.get_frect(topleft = (0,0))
+            }
+
+        return tile_images
 
     def _handle_game_events(self, keys):
         super()._handle_game_events()
@@ -91,9 +124,9 @@ class TowerDefense(Game):
             self._handle_game_timer(delta_time)
             self._handle_game_events(keys)
 
-            # Clear the screen first
             self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
-            #self._handle_game_grid()
+
+            self._handle_tile_image_draw()
 
             self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
             self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)
@@ -106,6 +139,7 @@ class TowerDefense(Game):
             self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
 
             self.GUI_MANAGER.handle_gui(self._SCREEN_SURFACE)
+
     
             # Update display once after all drawing is complete
             pygame.display.update()

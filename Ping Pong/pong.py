@@ -11,7 +11,7 @@ class Paddle:
         self.handle_collision()
         pygame.draw.rect(surface,(255,255,255), (self.position.x, self.position.y, self.width, self.height))
         self.surface = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
-    
+
     def handle_collision(self):
         if self.position.y >= 690:
             self.position.y = 690
@@ -20,6 +20,21 @@ class Paddle:
         
     def get_rect(self):
         return self.surface
+
+class AIPaddle(Paddle):
+    def __init__(self):
+        super().__init__()
+        self.position = pygame.Vector2((790, 790))
+    
+    def run(self,surface,PongBall):
+        super().run(surface)
+        
+        if self.position.y >= PongBall.position.y:
+            self.position.y += 5
+        elif self.position.y <= PongBall.position.y:
+            self.position.y -= 5
+
+        self.surface = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
 
 class PongBall:
     def __init__(self, x, y, width, height, radius=10):
@@ -51,6 +66,7 @@ class PongBall:
             self.position.y = 0 + self.radius
             self.velocity.y = -self.velocity.y
         
+        # Paddle Collision
         if (self.position.x - self.radius <= paddle.position.x + paddle.width and
             self.position.y + self.radius >= paddle.position.y and 
             self.position.y - self.radius <= paddle.position.y + paddle.height):
@@ -74,6 +90,8 @@ class Game:
         self.L_PADDLE = Paddle()
         self.L_PADDLE_DRAG_BOX = pygame.Rect(0,0, 400,800)
         self.L_PADDLE_DRAG = False
+
+        self.AIPADDLE = AIPaddle()
         self.PongBall = PongBall(self.GAME_WIDTH // 2, self.GAME_HEIGHT // 2, 10,10,10)
 
         self.GAME_RUNNING = True
@@ -82,18 +100,24 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.GAME_RUNNING = False
-            if self.L_PADDLE_DRAG:
-                mouse_pos = pygame.Vector2(10, pygame.mouse.get_pos()[1])
+        if self.L_PADDLE_DRAG:
+            mouse_pos = pygame.Vector2(10, pygame.mouse.get_pos()[1])
+            if self.L_PADDLE.position.y <= mouse_pos[1]:
+                self.L_PADDLE.position.y += 5 
+            elif self.L_PADDLE.position.y >= mouse_pos[1]:
+                self.L_PADDLE.position.y -= 5
+            else:
                 self.L_PADDLE.position = mouse_pos
-            if self.PongBall.collided:
-                self.PongBall.position.x = self.L_PADDLE.position.x + 50
-                self.PongBall.velocity = pygame.Vector2(500, 0)
-                self.PongBall.collided = False
+
+        if self.PongBall.collided:
+            self.PongBall.position = pygame.Vector2(random.randint(350,400), random.randint(350,400))
+            self.PongBall.velocity = pygame.Vector2(500, 0)
+            self.PongBall.collided = False
     
     def handle_input_events(self):
             if pygame.mouse.get_pressed()[0] and self.L_PADDLE_DRAG_BOX.collidepoint(pygame.mouse.get_pos()) :
                 self.L_PADDLE_DRAG = True
-            elif pygame.mouse.get_just_released()[0]:
+            else:
                 self.L_PADDLE_DRAG = False
 
     def run(self):
@@ -107,6 +131,7 @@ class Game:
             self.handle_input_events()
 
             self.L_PADDLE.run(self.GAME_DISPLAY)
+            self.AIPADDLE.run(self.GAME_DISPLAY,self.PongBall)
             self.PongBall.run(self.GAME_DISPLAY, dt, self.L_PADDLE)
 
             pygame.display.update()

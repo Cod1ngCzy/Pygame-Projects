@@ -23,15 +23,15 @@ class Paddle:
 
 class PongBall:
     def __init__(self, x, y, width, height, radius=10):
-        self.position = pygame.Vector2(x, y)  # Stores the precise position of the ball
-        self.surface = pygame.Rect(x, y, width, height)  # Rect for collision detection (not used in physics)
-        self.radius = radius  # The radius of the ball (affects collisions)
-        self.velocity = pygame.Vector2(500, 0)  # Initial velocity (movement direction & speed)
-        self.color = 'red'  # Ball color
-        self.mass = 1  # Mass of the ball (used in velocity exchange during collision
+        self.position = pygame.Vector2(x, y)  
+        self.surface = pygame.Rect(x, y, width, height) 
+        self.radius = radius  
+        self.velocity = pygame.Vector2(500, random.randint(-300,300))  
+        self.color = 'red'  
+
+        self.collided = False
     
     def move(self, dt):
-        """Update the ball's position based on its velocity and delta time."""
         self.position += self.velocity * dt  # Apply movement
         
         # Sync the pygame Rect with the ball's position
@@ -43,8 +43,7 @@ class PongBall:
             self.velocity.x = -self.velocity.x   
             self.velocity.y += random.uniform(-300, 300)
         elif self.position.x - self.radius <= 0:  # Left wall collision
-            print('Scored')
-            self.position.x = 400
+            self.collided = True
         elif self.position.y + self.radius >= 800:
             self.position.y = 800 - self.radius
             self.velocity.y = -self.position.y
@@ -52,7 +51,6 @@ class PongBall:
             self.position.y = 0 + self.radius
             self.velocity.y = -self.velocity.y
         
-        # Paddle Collision
         if (self.position.x - self.radius <= paddle.position.x + paddle.width and
             self.position.y + self.radius >= paddle.position.y and 
             self.position.y - self.radius <= paddle.position.y + paddle.height):
@@ -74,6 +72,7 @@ class Game:
         self.GAME_CLOCK = pygame.time.Clock()
 
         self.L_PADDLE = Paddle()
+        self.L_PADDLE_DRAG_BOX = pygame.Rect(0,0, 400,800)
         self.L_PADDLE_DRAG = False
         self.PongBall = PongBall(self.GAME_WIDTH // 2, self.GAME_HEIGHT // 2, 10,10,10)
 
@@ -86,22 +85,29 @@ class Game:
             if self.L_PADDLE_DRAG:
                 mouse_pos = pygame.Vector2(10, pygame.mouse.get_pos()[1])
                 self.L_PADDLE.position = mouse_pos
+            if self.PongBall.collided:
+                self.PongBall.position.x = self.L_PADDLE.position.x + 50
+                self.PongBall.velocity = pygame.Vector2(500, 0)
+                self.PongBall.collided = False
+    
+    def handle_input_events(self):
+            if pygame.mouse.get_pressed()[0] and self.L_PADDLE_DRAG_BOX.collidepoint(pygame.mouse.get_pos()) :
+                self.L_PADDLE_DRAG = True
+            elif pygame.mouse.get_just_released()[0]:
+                self.L_PADDLE_DRAG = False
 
     def run(self):
         while self.GAME_RUNNING:
             dt = self.GAME_CLOCK.tick() / 1000
 
             self.GAME_DISPLAY.fill((0,0,0))
+            pygame.draw.rect(self.GAME_DISPLAY, (255,255,255),(400,0, 5,800)) # Game Line
 
             self.handle_game_events()
+            self.handle_input_events()
 
             self.L_PADDLE.run(self.GAME_DISPLAY)
             self.PongBall.run(self.GAME_DISPLAY, dt, self.L_PADDLE)
-
-            if pygame.mouse.get_pressed()[0] and self.L_PADDLE.get_rect().collidepoint(pygame.mouse.get_pos()) :
-                self.L_PADDLE_DRAG = True
-            elif pygame.mouse.get_just_released()[0]:
-                self.L_PADDLE_DRAG = False
 
             pygame.display.update()
         pygame.quit()

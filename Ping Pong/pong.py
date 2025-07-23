@@ -30,18 +30,18 @@ class AIPaddle(Paddle):
         super().run(surface)
         
         if self.position.y >= PongBall.position.y:
-            self.position.y += 5
-        elif self.position.y <= PongBall.position.y:
             self.position.y -= 5
+        elif self.position.y <= PongBall.position.y:
+            self.position.y += 5
 
-        self.surface = pygame.Rect(self.position.x, self.position.y, self.width, self.height)
+        self.surface.center = self.position
 
 class PongBall:
     def __init__(self, x, y, width, height, radius=10):
         self.position = pygame.Vector2(x, y)  
         self.surface = pygame.Rect(x, y, width, height) 
         self.radius = radius  
-        self.velocity = pygame.Vector2(500, random.randint(-300,300))  
+        self.velocity = pygame.Vector2(800, random.randint(-300,300))  
         self.color = 'red'  
 
         self.collided = False
@@ -111,7 +111,7 @@ class Game:
 
         if self.PongBall.collided:
             self.PongBall.position = pygame.Vector2(random.randint(350,400), random.randint(350,400))
-            self.PongBall.velocity = pygame.Vector2(500, 0)
+            self.PongBall.velocity = pygame.Vector2(800, 0)
             self.PongBall.collided = False
     
     def handle_input_events(self):

@@ -1,5 +1,6 @@
 import pygame, math, sys
 
+#Test
 class CelestialBody:
     def __init__(self, mass=1.0, position=(0,0), velocity=(0,0), radius=20, color=(255,255,255), name=""):
         self.mass = mass
@@ -59,7 +60,7 @@ class CelestialBody:
                 trail_color = tuple(int(c * alpha) for c in self.color)
                 if i > 0:
                     pygame.draw.line(screen, trail_color, self.trail[i-1], self.trail[i], 1)
-        
+    
         # Draw the celestial body
         pygame.draw.circle(screen, self.color, (int(self.position.x), int(self.position.y)), self.radius)
         

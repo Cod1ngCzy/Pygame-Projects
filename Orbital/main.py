@@ -1,7 +1,7 @@
 import pygame, math, sys
 
 class CelestialBody:
-    def __init__(self, mass=1.0, position=(0,0), velocity=(0,0), radius=20, color=(255,255,255), name="", fixed=False):
+    def __init__(self, mass=1.0, position=(0,0), velocity=(0,0), radius=20, color=(255,255,255), name="", fixed=False, parent=None):
         self.mass = mass
         self.radius = radius
         self.position = pygame.Vector2(position)
@@ -12,8 +12,34 @@ class CelestialBody:
         self.trail = []
         self.max_trail_length = 800
         self.fixed = fixed
+        
+        # NEW: Parent-child orbital system
+        self.parent = parent  # Which body this orbits around
+        if parent:
+            self.orbital_distance = 25  # Distance from parent
+            self.orbital_angle = 0      # Current angle in orbit
+            self.orbital_speed = 2.0    # Radians per second
     
     def update_physics(self, delta_time, other_bodies):
+        # NEW: Handle satellites with parent-child orbital motion
+        if self.parent:
+            # Update orbital angle
+            self.orbital_angle += self.orbital_speed * delta_time
+            
+            # Calculate position relative to parent using polar coordinates
+            rel_x = self.orbital_distance * math.cos(self.orbital_angle)
+            rel_y = self.orbital_distance * math.sin(self.orbital_angle)
+            
+            # Set absolute position = parent position + relative position
+            self.position = self.parent.position + pygame.Vector2(rel_x, rel_y)
+            
+            # Add to trail
+            self.trail.append((int(self.position.x), int(self.position.y)))
+            if len(self.trail) > self.max_trail_length:
+                self.trail.pop(0)
+            return  # Skip gravitational physics for satellites
+        
+        # EXISTING: Normal gravitational physics for planets
         # Calculate gravitational force
         fx_total = 0
         fy_total = 0
@@ -24,6 +50,10 @@ class CelestialBody:
                 if self.fixed:
                     return
 
+                # Skip satellites in gravitational calculations
+                if other.parent:
+                    continue
+
                 # Distance between bodies
                 dx = other.position.x - self.position.x
                 dy = other.position.y - self.position.y
@@ -33,7 +63,7 @@ class CelestialBody:
                     distance = 10
                 
                 # Gravitational force magnitude (scaled for visualization)
-                G = 100  # Increased gravitational constant
+                G = 100  # Gravitational constant
                 force = G * self.mass * other.mass / (distance ** 2)
 
                 fx_total += force * (dx / distance)
@@ -138,6 +168,22 @@ class SolarSystem:
         )
         self.bodies.append(earth)
         
+        # NEW: Moon orbiting Earth using parent-child system
+        moon = CelestialBody(
+            mass=1,  # Small mass, won't affect other bodies
+            position=(0, 0),  # Will be calculated relative to Earth
+            velocity=(0, 0),  # Not used for orbital satellites
+            radius=2,
+            color=(200, 200, 255),
+            name="Moon",
+            parent=earth  # This makes it orbit Earth!
+        )
+        # Customize the Moon's orbit
+        moon.orbital_distance = 25   # Distance from Earth
+        moon.orbital_speed = 3.0     # How fast it orbits (radians/second)
+        moon.orbital_angle = 0       # Starting position
+        self.bodies.append(moon)
+        
         # Mars
         mars_dist = 200
         mars_vel = self.calculate_circular_velocity(sun.mass, mars_dist)
@@ -163,6 +209,21 @@ class SolarSystem:
             name="Jupiter"
         )
         self.bodies.append(jupiter)
+        
+        # NEW: Add a moon to Jupiter too!
+        jupiter_moon = CelestialBody(
+            mass=0.5,
+            position=(0, 0),
+            velocity=(0, 0),
+            radius=1,
+            color=(255, 255, 200),
+            name="Io",
+            parent=jupiter
+        )
+        jupiter_moon.orbital_distance = 18
+        jupiter_moon.orbital_speed = 4.0  # Faster orbit
+        jupiter_moon.orbital_angle = math.pi  # Start on opposite side
+        self.bodies.append(jupiter_moon)
         
         # Asteroid with slightly elliptical orbit
         asteroid_dist = 175
@@ -208,7 +269,7 @@ class Game:
         self.GAME_WIDTH = 800
         self.GAME_HEIGHT = 600
         self.GAME_SCREEN = pygame.display.set_mode((self.GAME_WIDTH, self.GAME_HEIGHT))
-        pygame.display.set_caption("Stable Solar System with Earth-Moon System")
+        pygame.display.set_caption("Solar System with Moon Orbits")
         
         self.GAME_CLOCK = pygame.time.Clock()
         self.RUNNING = True
@@ -257,7 +318,7 @@ class Game:
                 self.GAME_SCREEN.blit(text, (10, y))
             y += 20
         
-        title = self.font.render("Stable Solar System", True, (255, 255, 255))
+        title = self.font.render("Solar System with Moons", True, (255, 255, 255))
         title_rect = title.get_rect(center=(self.GAME_WIDTH // 2, 25))
         self.GAME_SCREEN.blit(title, title_rect)
     

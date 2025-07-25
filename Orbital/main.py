@@ -1,7 +1,7 @@
 import pygame, math, sys
 
 class CelestialBody:
-    def __init__(self, mass=1.0, position=(0,0), velocity=(0,0), radius=20, color=(255,255,255), name=""):
+    def __init__(self, mass=1.0, position=(0,0), velocity=(0,0), radius=20, color=(255,255,255), name="", fixed=False):
         self.mass = mass
         self.radius = radius
         self.position = pygame.Vector2(position)
@@ -11,6 +11,7 @@ class CelestialBody:
         self.name = name
         self.trail = []  # Store position history for trails
         self.max_trail_length = 500
+        self.fixed = fixed  # Whether the body is fixed in place (e.g., the Sun)
     
     def update_physics(self, delta_time, other_bodies):
         # Calculate gravitational force
@@ -19,6 +20,10 @@ class CelestialBody:
 
         for other in other_bodies:
             if other is not self:
+                # Skip fixed bodies (e.g., the Sun)
+                if self.fixed:
+                    return
+
                 # Distance between bodies
                 dx = other.position.x - self.position.x
                 dy = other.position.y - self.position.y
@@ -84,7 +89,8 @@ class SolarSystem:
             velocity=(0, 0),
             radius=25,
             color=(255, 255, 0),  # Yellow
-            name="Sun"
+            name="Sun",
+            fixed=True  # Sun is fixed in place
         )
         self.bodies.append(sun)
         
@@ -103,7 +109,7 @@ class SolarSystem:
             name="Earth"
         )
         self.bodies.append(earth)
-        
+
         # Mars
         mars_distance = 220
         mars_orbital_velocity = math.sqrt(G * sun.mass / mars_distance)
@@ -159,7 +165,7 @@ class SolarSystem:
     def update(self, delta_time):
         for body in self.bodies:
             body.update_physics(delta_time, self.bodies)
-    
+        
     def draw(self, screen):
         for body in self.bodies:
             body.draw(screen)

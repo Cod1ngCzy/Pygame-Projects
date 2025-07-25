@@ -1,6 +1,5 @@
 import pygame, math, sys
 
-#Test
 class CelestialBody:
     def __init__(self, mass=1.0, position=(0,0), velocity=(0,0), radius=20, color=(255,255,255), name="", fixed=False):
         self.mass = mass
@@ -10,9 +9,9 @@ class CelestialBody:
         self.acceleration = pygame.Vector2(0,0)
         self.color = color
         self.name = name
-        self.trail = []  # Store position history for trails
-        self.max_trail_length = 500
-        self.fixed = fixed  # Whether the body is fixed in place (e.g., the Sun)
+        self.trail = []
+        self.max_trail_length = 800
+        self.fixed = fixed
     
     def update_physics(self, delta_time, other_bodies):
         # Calculate gravitational force
@@ -34,7 +33,7 @@ class CelestialBody:
                     distance = 10
                 
                 # Gravitational force magnitude (scaled for visualization)
-                G = 500  # Increased gravitational constant
+                G = 100  # Increased gravitational constant
                 force = G * self.mass * other.mass / (distance ** 2)
 
                 fx_total += force * (dx / distance)
@@ -58,131 +57,139 @@ class CelestialBody:
             self.trail.pop(0)
 
     def draw(self, screen):
-        # Draw trail
+        # Draw trail with fade
         if len(self.trail) > 2:
             for i in range(1, len(self.trail)):
-                alpha = i / len(self.trail)  # Fade effect
+                alpha = (i / len(self.trail)) * 0.5  # More subtle trails
                 trail_color = tuple(int(c * alpha) for c in self.color)
                 if i > 0:
                     pygame.draw.line(screen, trail_color, self.trail[i-1], self.trail[i], 1)
     
-        # Draw the celestial body
+        # Draw body
         pygame.draw.circle(screen, self.color, (int(self.position.x), int(self.position.y)), self.radius)
         
-        # Draw name label
+        # Draw name
         if self.name:
-            font = pygame.font.Font(None, 24)
+            font = pygame.font.Font(None, 18)
             text = font.render(self.name, True, (255, 255, 255))
-            screen.blit(text, (int(self.position.x) + self.radius + 5, int(self.position.y) - 10))
+            screen.blit(text, (int(self.position.x) + self.radius + 3, int(self.position.y) - 8))
 
 class SolarSystem:
     def __init__(self, center_x, center_y):
         self.center_x = center_x
         self.center_y = center_y
         self.bodies = []
+        self.G = 100  # Gravitational constant
         self.create_solar_system()
     
+    def calculate_circular_velocity(self, central_mass, distance):
+        """Calculate the velocity needed for a circular orbit"""
+        return math.sqrt(self.G * central_mass / distance)
+    
     def create_solar_system(self):
-        # Sun (at center)
+        # Sun at center - much more massive for stable system
         sun = CelestialBody(
-            mass=10000,  # Much larger mass for central body
+            mass=100000,  # Dominant central mass
             position=(self.center_x, self.center_y),
             velocity=(0, 0),
-            radius=25,
-            color=(255, 255, 0),  # Yellow
+            radius=20,
+            color=(255, 255, 0),
             name="Sun",
-            fixed=True  # Sun is fixed in place
+            fixed=True
         )
         self.bodies.append(sun)
         
-        # Calculate proper orbital velocities using v = sqrt(GM/r)
-        G = 500  # Our scaled gravitational constant
+        # Mercury
+        mercury_dist = 80
+        mercury_vel = self.calculate_circular_velocity(sun.mass, mercury_dist)
+        mercury = CelestialBody(
+            mass=30,
+            position=(self.center_x + mercury_dist, self.center_y),
+            velocity=(0, mercury_vel),
+            radius=3,
+            color=(169, 169, 169),
+            name="Mercury"
+        )
+        self.bodies.append(mercury)
         
-        # Earth
-        earth_distance = 150
-        earth_orbital_velocity = math.sqrt(G * sun.mass / earth_distance)
+        # Venus
+        venus_dist = 110
+        venus_vel = self.calculate_circular_velocity(sun.mass, venus_dist)
+        venus = CelestialBody(
+            mass=80,
+            position=(self.center_x + venus_dist, self.center_y),
+            velocity=(0, venus_vel),
+            radius=5,
+            color=(255, 165, 0),
+            name="Venus"
+        )
+        self.bodies.append(venus)
+        
+        # Earth - positioned for stable orbit
+        earth_dist = 150
+        earth_vel = self.calculate_circular_velocity(sun.mass, earth_dist)
         earth = CelestialBody(
-            mass=10,
-            position=(self.center_x + earth_distance, self.center_y),
-            velocity=(0, earth_orbital_velocity),  # Proper orbital velocity
-            radius=8,
-            color=(100, 149, 237),  # Blue
+            mass=100,
+            position=(self.center_x + earth_dist, self.center_y),
+            velocity=(0, earth_vel),
+            radius=6,
+            color=(100, 149, 237),
             name="Earth"
         )
         self.bodies.append(earth)
-
-        # Satellite orbiting Earth only
-        satellite_distance = 25  # Distance from Earth's center
-        satellite_orbital_velocity = math.sqrt(G * (earth.mass * 100) / satellite_distance)
-        satellite_position = earth.position + pygame.Vector2(satellite_distance, 0)
-        satellite_velocity_vector = pygame.Vector2(0, satellite_orbital_velocity)
-        satellite_velocity = earth.velocity + satellite_velocity_vector
-        satellite = CelestialBody(
-            mass=1,
-            position=satellite_position,
-            velocity=satellite_velocity,
-            radius=6,
-            color=(200, 200, 255),  # Light blue
-            name="Satellite"
-        )
-        self.bodies.append(satellite)
-
+        
         # Mars
-        mars_distance = 220
-        mars_orbital_velocity = math.sqrt(G * sun.mass / mars_distance)
+        mars_dist = 200
+        mars_vel = self.calculate_circular_velocity(sun.mass, mars_dist)
         mars = CelestialBody(
-            mass=8,
-            position=(self.center_x + mars_distance, self.center_y),
-            velocity=(0, mars_orbital_velocity),
-            radius=6,
-            color=(255, 99, 71),  # Red
+            mass=60,
+            position=(self.center_x + mars_dist, self.center_y),
+            velocity=(0, mars_vel),
+            radius=4,
+            color=(255, 99, 71),
             name="Mars"
         )
         self.bodies.append(mars)
         
-        # Venus
-        venus_distance = 100
-        venus_orbital_velocity = math.sqrt(G * sun.mass / venus_distance)
-        venus = CelestialBody(
-            mass=9,
-            position=(self.center_x + venus_distance, self.center_y),
-            velocity=(0, venus_orbital_velocity),
-            radius=7,
-            color=(255, 165, 0),  # Orange
-            name="Venus"
-        )
-        self.bodies.append(venus)
-
-        # Jupiter
-        jupiter_distance = 300
-        jupiter_orbital_velocity = math.sqrt(G * sun.mass / jupiter_distance)
+        # Jupiter - far out for stability
+        jupiter_dist = 280
+        jupiter_vel = self.calculate_circular_velocity(sun.mass, jupiter_dist)
         jupiter = CelestialBody(
-            mass=20,
-            position=(self.center_x + jupiter_distance, self.center_y),
-            velocity=(0, jupiter_orbital_velocity),
-            radius=12,
-            color=(255, 215, 0),  # Gold
+            mass=300,
+            position=(self.center_x + jupiter_dist, self.center_y),
+            velocity=(0, jupiter_vel),
+            radius=10,
+            color=(255, 215, 0),
             name="Jupiter"
         )
         self.bodies.append(jupiter)
         
-        # Small asteroid with elliptical orbit
-        asteroid_distance = 180
-        asteroid_orbital_velocity = math.sqrt(G * sun.mass / asteroid_distance) * 0.8  # Slightly slower for ellipse
+        # Asteroid with slightly elliptical orbit
+        asteroid_dist = 175
+        asteroid_vel = self.calculate_circular_velocity(sun.mass, asteroid_dist) * 0.9  # Slower for ellipse
         asteroid = CelestialBody(
-            mass=1,
-            position=(self.center_x + asteroid_distance, self.center_y + 30),
-            velocity=(20, asteroid_orbital_velocity),
-            radius=3,
-            color=(169, 169, 169),  # Gray
+            mass=0.5,
+            position=(self.center_x + asteroid_dist, self.center_y - 20),
+            velocity=(10, asteroid_vel),  # Some tangential component
+            radius=2,
+            color=(139, 69, 19),
             name="Asteroid"
         )
         self.bodies.append(asteroid)
     
     def update(self, delta_time):
-        for body in self.bodies:
-            body.update_physics(delta_time, self.bodies)
-        
+        # Use smaller timestep for numerical stability
+        max_dt = 0.008  # Maximum timestep
+        if delta_time > max_dt:
+            steps = int(delta_time / max_dt) + 1
+            small_dt = delta_time / steps
+            for _ in range(steps):
+                for body in self.bodies:
+                    body.update_physics(small_dt, self.bodies)
+        else:
+            for body in self.bodies:
+                body.update_physics(delta_time, self.bodies)
+    
     def draw(self, screen):
         for body in self.bodies:
             body.draw(screen)
@@ -201,18 +208,17 @@ class Game:
         self.GAME_WIDTH = 800
         self.GAME_HEIGHT = 600
         self.GAME_SCREEN = pygame.display.set_mode((self.GAME_WIDTH, self.GAME_HEIGHT))
-        pygame.display.set_caption("Orbital Motion Simulation")
+        pygame.display.set_caption("Stable Solar System with Earth-Moon System")
         
         self.GAME_CLOCK = pygame.time.Clock()
         self.RUNNING = True
         self.PAUSED = False
+        self.time_scale = 1.0
 
-        # Create Solar System
         self.solar_system = SolarSystem(self.GAME_WIDTH // 2, self.GAME_HEIGHT // 2)
         
-        # UI
-        self.font = pygame.font.Font(None, 36)
-        self.small_font = pygame.font.Font(None, 24)
+        self.font = pygame.font.Font(None, 32)
+        self.small_font = pygame.font.Font(None, 18)
 
     def handle_game_events(self):
         for event in pygame.event.get():
@@ -227,40 +233,46 @@ class Game:
                     self.solar_system.reset()
                 elif event.key == pygame.K_c:
                     self.solar_system.clear_trails()
+                elif event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
+                    self.time_scale = min(8.0, self.time_scale + 0.25)
+                elif event.key == pygame.K_MINUS:
+                    self.time_scale = max(0.10, self.time_scale - 0.25)
     
     def draw_ui(self):
-        # Instructions
         instructions = [
             "SPACE: Pause/Resume",
-            "C: Clear trails",
-            "R: Reset simulation",
+            "C: Clear trails", 
+            "R: Reset",
+            "+/-: Speed control",
             "ESC: Exit",
-            f"Status: {'PAUSED' if self.PAUSED else 'RUNNING'}"
+            "",
+            f"Status: {'PAUSED' if self.PAUSED else 'RUNNING'}",
+            f"Speed: {self.time_scale:.2f}x"
         ]
         
-        y_offset = 10
+        y = 10
         for instruction in instructions:
-            text = self.small_font.render(instruction, True, (255, 255, 255))
-            self.GAME_SCREEN.blit(text, (10, y_offset))
-            y_offset += 25
+            if instruction:  # Skip empty strings
+                text = self.small_font.render(instruction, True, (255, 255, 255))
+                self.GAME_SCREEN.blit(text, (10, y))
+            y += 20
         
-        # Title
-        title = self.font.render("Solar System Simulation", True, (255, 255, 255))
-        title_rect = title.get_rect(center=(self.GAME_WIDTH // 2, 30))
+        title = self.font.render("Stable Solar System", True, (255, 255, 255))
+        title_rect = title.get_rect(center=(self.GAME_WIDTH // 2, 25))
         self.GAME_SCREEN.blit(title, title_rect)
     
     def run(self):
         while self.RUNNING:
-            delta_time = self.GAME_CLOCK.tick(60) / 1000
+            # Fixed timestep with scaling
+            delta_time = (1.0 / 60.0) * self.time_scale
+            self.GAME_CLOCK.tick(60)
             
             self.handle_game_events()
             
-            # Update physics
             if not self.PAUSED:
                 self.solar_system.update(delta_time)
             
-            # Draw everything
-            self.GAME_SCREEN.fill((0, 0, 0))
+            self.GAME_SCREEN.fill((5, 5, 15))  # Dark space background
             self.solar_system.draw(self.GAME_SCREEN)
             self.draw_ui()
 

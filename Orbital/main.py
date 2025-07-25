@@ -111,6 +111,22 @@ class SolarSystem:
         )
         self.bodies.append(earth)
 
+        # Satellite orbiting Earth only
+        satellite_distance = 25  # Distance from Earth's center
+        satellite_orbital_velocity = math.sqrt(G * (earth.mass * 100) / satellite_distance)
+        satellite_position = earth.position + pygame.Vector2(satellite_distance, 0)
+        satellite_velocity_vector = pygame.Vector2(0, satellite_orbital_velocity)
+        satellite_velocity = earth.velocity + satellite_velocity_vector
+        satellite = CelestialBody(
+            mass=1,
+            position=satellite_position,
+            velocity=satellite_velocity,
+            radius=6,
+            color=(200, 200, 255),  # Light blue
+            name="Satellite"
+        )
+        self.bodies.append(satellite)
+
         # Mars
         mars_distance = 220
         mars_orbital_velocity = math.sqrt(G * sun.mass / mars_distance)

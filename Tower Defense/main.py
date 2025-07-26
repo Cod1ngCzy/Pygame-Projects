@@ -4,30 +4,6 @@ from enemy import Slime, EntitySpawner
 from card import Card, CardManager
 from gui import GUIManager
 
-class Game():
-    def __init__(self):
-        pygame.init()
-        pygame.display.set_caption('Tower Defense')
-        self._SCREEN_WIDTH = 1024
-        self._SCREEN_HEIGHT = 768
-        self._SCREEN_SURFACE = pygame.display.set_mode((self._SCREEN_WIDTH, self._SCREEN_HEIGHT))
-        self._SCREEN_FILLCOLOR = (50,50,50)
-
-        # Game Clock
-        self._GAME_CLOCK = pygame.time.Clock()
-        self._GAME_TIMER = 0
-
-        # Running Flag
-        self._GAME_RUN = True
-    
-    def _handle_game_timer(self, delta_time):
-        self._GAME_TIMER += delta_time * 1000
-    
-    def _handle_game_events(self, keys=None):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self._GAME_RUN = False
-
 class TowerDefense(Game, TileMapManager):
     def __init__(self):
         super().__init__()
@@ -49,6 +25,9 @@ class TowerDefense(Game, TileMapManager):
 
         # GUI Properties
         self.GUI_MANAGER = GUIManager()
+
+        # Game State
+        self.CURRENT_GAME_STATE = GameState.GAME_PLAY
 
         self.TILEMAP = self._load_tilemap(os.path.join('assets','Levels','tilemap.json'))    
         self.TILE_IMAGES = self._handle_tile_image(os.path.join('assets', 'TileSet', '1 Tiles'))
@@ -141,26 +120,27 @@ class TowerDefense(Game, TileMapManager):
             mouse_just_clicked = pygame.mouse.get_just_pressed()
             keys = pygame.key.get_pressed()
 
-            self._handle_game_timer(delta_time)
-            self._handle_game_events(keys)
+            if self.CURRENT_GAME_STATE == GameState.GAME_PLAY:
+                self._handle_game_grid()
+                self._handle_game_timer(delta_time)
+                self._handle_game_events(keys)
 
-            self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
+                self._SCREEN_SURFACE.fill(self._SCREEN_FILLCOLOR)
 
-            self._handle_tile_image_draw()
+                self._handle_tile_image_draw()
 
-            self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
-            self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)
+                self.CARD_MANAGER.handle_deck(self._SCREEN_SURFACE, delta_time)
+                self._handle_card_manager_updates(mouse_pos, mouse_just_clicked)
 
-            self.ENTITY_SPAWNER.update(delta_time, self._SCREEN_SURFACE)
-            self.ENTITY_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE)
-            self.ENTITY_SPRITE_GROUP.draw(self._SCREEN_SURFACE)  
+                self.ENTITY_SPAWNER.update(delta_time, self._SCREEN_SURFACE)
+                self.ENTITY_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE)
+                self.ENTITY_SPRITE_GROUP.draw(self._SCREEN_SURFACE)  
 
-            self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP,mouse_pos,mouse_just_clicked)
-            self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
+                self.TOWER_SPRITE_GROUP.update(delta_time, self._SCREEN_SURFACE, self.ENTITY_SPRITE_GROUP,mouse_pos,mouse_just_clicked)
+                self.TOWER_SPRITE_GROUP.draw(self._SCREEN_SURFACE)
 
             self.GUI_MANAGER.handle_gui(self._SCREEN_SURFACE)
 
-    
             # Update display once after all drawing is complete
             pygame.display.update()
         

@@ -28,6 +28,7 @@ class Ball:
         self.surface.center = (int(self.pos.x), int(self.pos.y))
 
     def drag_ball(self):
+    
         """Allows the user to drag the ball using the mouse."""
         mouse_pos = pygame.Vector2(pygame.mouse.get_pos()) # Get Mouse Position
 

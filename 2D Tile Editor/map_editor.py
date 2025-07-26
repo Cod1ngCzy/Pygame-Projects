@@ -20,7 +20,6 @@ class TileEditor:
         self._init_tile_editor()
     
     def _init_tile_editor(self):
-        # Create an instance of classes
         self.TILEIMAGE_HANDLER = TileImageManager()
         self.TILEMAP_MANAGER = TileMapManager()
         
@@ -50,7 +49,6 @@ class TileEditor:
         self.load_map = False
         self.create_map = False
 
-        # Isolated Flag
         self.on_menu = self.menu_component.DIALOG_STATE
     
     def _reinitialize_components(self):
@@ -831,6 +829,5 @@ class Dialog_NewMap():
         self._handle_text_input(keys, keys_just_pressed)
 
         return True
-
 
 TileEditor().run()

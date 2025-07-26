@@ -27,7 +27,6 @@ class TileImageManager():
         self._handle_foreground_layer_images()
 
     def _validate_file_paths(self):
-        # Validates Required Folder/File Paths
         if not os.path.exists(self._required_file_paths['base_path']):
             os.makedirs(self._required_file_paths['base_path'])
         elif not os.path.exists(self._required_file_paths['background_folder_path']):

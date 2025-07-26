@@ -1,6 +1,6 @@
 
 from settings import *
-from game import Game
+from main import Game
 
 class Button():
     def __init__(self, button_width:int = 200, button_height:int = 100, button_pos=pygame.Vector2(0,0), button_text:str = 'Button', button_color:tuple = (255,255,255)):

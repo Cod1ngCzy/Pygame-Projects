@@ -1,15 +1,37 @@
 from settings import *
-from game import Game
 from archer import ArcherTower
 from enemy import Slime, EntitySpawner
 from card import Card, CardManager
 from gui import GUIManager
 
+class Game():
+    def __init__(self):
+        pygame.init()
+        pygame.display.set_caption('Tower Defense')
+        self._SCREEN_WIDTH = 1024
+        self._SCREEN_HEIGHT = 768
+        self._SCREEN_SURFACE = pygame.display.set_mode((self._SCREEN_WIDTH, self._SCREEN_HEIGHT))
+        self._SCREEN_FILLCOLOR = (50,50,50)
+
+        # Game Clock
+        self._GAME_CLOCK = pygame.time.Clock()
+        self._GAME_TIMER = 0
+
+        # Running Flag
+        self._GAME_RUN = True
+    
+    def _handle_game_timer(self, delta_time):
+        self._GAME_TIMER += delta_time * 1000
+    
+    def _handle_game_events(self, keys=None):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self._GAME_RUN = False
+
 class TowerDefense(Game, TileMapManager):
     def __init__(self):
         super().__init__()
         self.TOWER_SPRITE_GROUP = pygame.sprite.Group() 
-        self.TOWER_ENTITIES = {}
         self.ENTITY_SPRITE_GROUP = pygame.sprite.Group()
 
         # Grid Properties
@@ -28,23 +50,22 @@ class TowerDefense(Game, TileMapManager):
         # GUI Properties
         self.GUI_MANAGER = GUIManager()
 
-
         self.TILEMAP = self._load_tilemap(os.path.join('assets','Levels','tilemap.json'))    
-        self.tile_images = self._handle_tile_image(os.path.join('assets', 'TileSet', '1 Tiles'))
-        self.object_images = self._handle_tile_image(os.path.join('assets', 'TileSet', '2 Objects', '1 Shadow'))
+        self.TILE_IMAGES = self._handle_tile_image(os.path.join('assets', 'TileSet', '1 Tiles'))
+        self.OBJECT_IMAGES = self._handle_tile_image(os.path.join('assets', 'TileSet', '2 Objects', '1 Shadow'))
 
     def _handle_tile_image_draw(self):
         for row,tiles in enumerate(self.TILEMAP['tile']):
             for col,tile in enumerate(tiles):
                 if tile > 0:
-                    tile_surface = self.tile_images[tile].get('tile_surface')
+                    tile_surface = self.TILE_IMAGES[tile].get('tile_surface')
                     tile_surface = pygame.transform.scale(tile_surface, (64,64))
                     self._SCREEN_SURFACE.blit(tile_surface, (col * 64, row * 64))
 
         for row,objects in enumerate(self.TILEMAP['object']):
             for col,object in enumerate(objects):
                 if object > 0:
-                    object_surface = self.object_images[object].get('tile_surface')
+                    object_surface = self.OBJECT_IMAGES[object].get('tile_surface')
                     object_surface = pygame.transform.scale(object_surface, (64,64))
                     self._SCREEN_SURFACE.blit(object_surface, (col * 64, row * 64))
     
@@ -107,7 +128,6 @@ class TowerDefense(Game, TileMapManager):
             )
 
             new_tower = ArcherTower(grid_pos, False)
-            self.TOWER_ENTITIES[f'CARD_TOWER{len(self.TOWER_ENTITIES)}'] = new_tower
             self.TOWER_SPRITE_GROUP.add(new_tower)
             self.CARD_MANAGER.consume_selected_card()
         
